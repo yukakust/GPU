@@ -117,13 +117,16 @@ Clients spend miles to submit inference requests:
 miles_cost = tokens × layers_per_track × tracks_needed × groups
 ```
 
-| Request Type | Groups | Tracks | Cost (100 tokens, 6 layers) |
-|-------------|--------|--------|---------------------------|
-| Keyboard    | 0-1    | 1-2    | 0 (local) — 1,200        |
-| Chat        | 1-2    | 4      | 2,400 — 4,800            |
-| API Light   | 2      | 4      | 4,800                     |
-| API Full    | 3      | 4      | 7,200                     |
-| API Deep    | 4      | 4      | 9,600                     |
+| Request Type | Cost per request | Notes |
+|-------------|-----------------|-------|
+| Keyboard    | 0               | Always free (local compute) |
+| Translation | 0               | Always free (improves multilingual model) |
+| Any free-tier app | 0        | Apps that generate training data = free |
+| API Light   | 10 miles        | 2 groups |
+| API Full    | 30 miles        | 3 groups |
+| API Deep    | 50 miles        | 4 groups |
+
+Free-tier principle: anything that improves the model (keyboard, translation, other first-party apps) costs 0 miles. Only API requests that consume network compute from other devices cost miles.
 
 ### 5.4 Network Multiplier
 
@@ -131,14 +134,17 @@ The network multiplier adjusts based on total participating devices to incentivi
 
 | Active Devices | Multiplier | Effective Rate |
 |---------------|-----------|---------------|
-| 0 — 100       | 50.0      | 50 miles/token/layer |
-| 101 — 1,000   | 24.0      | 24 miles/token/layer |
-| 1,001 — 10,000 | 12.0     | 12 miles/token/layer |
-| 10,001 — 100,000 | 6.0    | 6 miles/token/layer |
-| 100,001 — 1,000,000 | 3.0 | 3 miles/token/layer |
-| 1,000,001+    | 1.0       | 1 mile/token/layer |
+| 0 — 100       | 100.0     | 100 miles/token/layer |
+| 101 — 1,000   | 50.0      | 50 miles/token/layer |
+| 1,001 — 10,000 | 30.0     | 30 miles/token/layer |
+| 10,001 — 100,000 | 18.0   | 18 miles/token/layer |
+| 100,001 — 1,000,000 | 10.0 | 10 miles/token/layer |
+| 1,000,001 — 10,000,000 | 6.0 | 6 miles/token/layer |
+| 10,000,001 — 100,000,000 | 4.0 | 4 miles/token/layer |
+| 100,000,001 — 1,000,000,000 | 2.5 | 2.5 miles/token/layer |
+| 1,000,000,001+ | 1.5      | 1.5 miles/token/layer |
 
-Multiplier transitions are determined by the 30-day rolling average of unique active devices. Transition is irreversible — the multiplier never increases.
+Multiplier transitions are determined by the 30-day rolling average of unique active devices. Transition is irreversible — the multiplier never increases. Minimum multiplier is 1.5 — there is always a bonus for participation.
 
 ### 5.5 Device Capability Bonus
 
@@ -175,11 +181,129 @@ Each device maintains a local mile balance. Balances are synchronized with the c
 
 Mile balances are unsigned 64-bit integers. Maximum balance: 2^64 - 1 (sufficient for all practical purposes).
 
-## 6. Mile Transfer Protocol
+### 5.8 Welcome Gifts
+
+New devices receive miles as a gift upon joining. No debt, no credit — pure gift.
+
+| Action | Miles Gifted |
+|--------|-------------|
+| Install app + create device identity | 500 |
+| Enable Network mode | 500 |
+| First 24 hours online | 200 |
+| Invite a friend (both receive) | 300 |
+| Install additional first-party app | 500 |
+
+Total potential from day 1: 1,000+ miles = 100+ API Light requests.
+
+Welcome gifts are one-time per device. Device identity is tied to hardware ID (IDFV on iOS, Android ID on Android). Factory reset = new device ID, but behavioral fingerprinting detects anomalies.
+
+### 5.9 Surge Pricing
+
+Request costs and earning rates adjust dynamically based on network load. This balances supply and demand in real-time.
+
+```
+surge_ratio = active_requests / available_compute_slots
+```
+
+| Surge Ratio | Demand Multiplier | Earn Multiplier | Indicator |
+|------------|------------------|----------------|-----------|
+| < 0.3      | 0.5x             | 0.7x           | Green: cheap API |
+| 0.3 — 0.7  | 1.0x             | 1.0x           | Normal |
+| 0.7 — 0.9  | 1.5x             | 1.5x           | Yellow: busy |
+| 0.9 — 0.95 | 2.0x             | 3.0x           | Orange: high load |
+| > 0.95     | 3.0x             | 5.0x           | Red: max load |
+
+Surge is calculated per-region (latency-based clusters, not geographic). Updated every 60 seconds. Clients see current surge level before submitting requests.
+
+Surge creates a self-balancing system: high demand → higher earn rate → device owners enable compute → supply increases → surge drops.
+
+### 5.10 Positive-Sum Economics
+
+Compute Miles are fundamentally different from money:
+
+- **Created by work**: miles appear when a device computes a real request. No mining into void.
+- **Destroyed by usage**: miles are spent (burned) when using API. They don't transfer to someone else's pocket.
+- **No scarcity by design**: more devices = more compute = more miles for everyone. One person earning more does NOT mean another earns less.
+- **Cannot be created without demand**: if no one sends requests, no miles are generated. Prevents inflation.
+- **No fiat exchange** (V2): miles cannot be officially converted to money. They are utility tokens for compute access only.
+
+## 6. Anti-Abuse Rules
+
+### 6.1 Proof of Useful Work
+
+Miles are generated ONLY when a device computes a real inference request from a real client. There is no way to mine miles without actual demand from the network. Fake demand (sending requests to yourself) costs miles to send, making it a net loss.
+
+### 6.2 Behavioral Fingerprinting
+
+The coordinator monitors device behavior patterns to detect emulators and bot farms:
+
+- Battery level patterns (real devices fluctuate; emulators show constant 100%)
+- Network characteristics (real devices change WiFi/cellular; emulators stay constant)
+- Gyroscope/accelerometer noise (real devices have micro-movements; emulators are perfectly still)
+- Response time variance (real devices vary with thermal throttling; emulators are consistent)
+
+Devices with suspicious patterns receive a reputation penalty. This is automatic — no human decision involved.
+
+### 6.3 Reputation System
+
+Each device has a reputation score (0.0 — 1.0) that affects request routing:
+
+```
+New device:     0.5 (neutral)
+Good behavior:  +0.01 per day of valid compute (max 1.0)
+Bad behavior:   -0.1 per invalid result or suspicious pattern
+Inactive:       -0.01 per day offline (min 0.1)
+```
+
+Low-reputation devices receive fewer requests → earn fewer miles → natural consequence without explicit "banning."
+
+### 6.4 Append-Only Rules
+
+Anti-abuse rules are versioned and append-only. New rules EXTEND existing rules, never retroactively change them:
+
+```
+Rule v1.0:  Miles earned for valid compute
+Rule v1.1:  + Behavioral fingerprinting for emulator detection
+Rule v1.2:  + Reputation decay for inactive devices
+```
+
+Old miles are never invalidated. Old devices are never retroactively punished. Rules are published in the open-source repository before activation.
+
+## 7. Governance
+
+### 7.1 Rule Updates
+
+- **Bootstrap phase (V2)**: Core maintainers propose rule changes. Users accept by updating their app. No update = old rules still work.
+- **Mature phase (V4+)**: Rule proposals submitted to public repository. 2-week discussion period. Community vote: 1 device = 1 vote (not 1 mile = 1 vote, to prevent plutocracy). >67% approval required.
+
+### 7.2 Automatic vs. Voted Rules
+
+| Automatic (no vote needed) | Voted (community approval) |
+|---------------------------|--------------------------|
+| Surge pricing formula (pure math) | New anti-abuse detection methods |
+| Reputation decay rate | Multiplier table changes |
+| Welcome gift amounts | New data collection types |
+| Tensor validation checks | Transfer endpoint activation (V3) |
+| | Fiat exchange policy (V4+) |
+
+### 7.3 Coordinator Independence
+
+The coordinator is open-source software. Anyone can run their own coordinator. Devices can connect to any coordinator they trust. If the primary coordinator behaves unfairly:
+
+1. Community forks the coordinator code
+2. Launches alternative coordinator
+3. Devices switch (change coordinator URL in settings)
+4. Primary coordinator loses devices → loses relevance
+
+This is the ultimate check on power: the coordinator has no lock-in. It must earn trust continuously.
+
+## 8. Mile Transfer Protocol
+
+**Availability: V3+** — Transfer functionality is disabled in V2. The protocol is specified here for completeness. Activation requires community vote (see Section 7.2).
 
 Miles can be transferred between devices using signed messages.
 
-### 6.1 Transfer Request
+### 8.1 Transfer Request
 
 ```
 POST /v1/miles/transfer
@@ -195,27 +319,27 @@ Content-Type: application/json
 }
 ```
 
-### 6.2 Validation
+### 8.2 Validation
 
 - Signature must be valid for the `from_device` public key
 - `amount` must not exceed sender's balance
 - `nonce` must be strictly greater than sender's last used nonce
 - `timestamp` must be within 5 minutes of coordinator time
 
-### 6.3 Properties
+### 8.3 Properties
 
 - Transfers are irreversible
 - No fee is applied by the protocol
 - Minimum transfer: 1 mile
 - Transfer history is queryable by device (own transfers only)
 
-## 7. Security
+## 9. Security
 
-### 7.1 Device Identity
+### 9.1 Device Identity
 
 Each device generates an Ed25519 keypair on first launch. The public key serves as the device identifier. The private key never leaves the device.
 
-### 7.2 Track Result Validation
+### 9.2 Track Result Validation
 
 The coordinator validates track results using:
 - Tensor shape verification
@@ -225,14 +349,14 @@ The coordinator validates track results using:
 
 Nodes that consistently produce invalid or outlier results have their reputation score reduced and eventually stop receiving requests.
 
-### 7.3 Privacy
+### 9.3 Privacy
 
 - Device identifiers are pseudonymous (public keys, not linked to personal identity)
 - Routing uses latency measurements, not geographic coordinates
 - Aggregated network statistics are published at country level only
 - No individual device location, specialization, or activity is ever exposed
 
-## 8. Versioning
+## 10. Versioning
 
 This protocol follows semantic versioning. Breaking changes increment the major version. Track nodes and coordinators negotiate protocol version during WebSocket handshake.
 
