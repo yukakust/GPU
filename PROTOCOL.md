@@ -16,7 +16,7 @@ Want more powerful AI → rating decides.
 
 Rating = your passport. Works in any app built on GPU Network.
 
-Developers don't pay for AI. Users bring their own compute. Developers build the interface, the network provides the AI.
+**Build with free AI.** If you're a developer — build anything: a chatbot, a translator, a code assistant, a medical app, a game with AI characters. You don't pay for AI. Not a cent. Not ever. Your users already have devices in the GPU Network. When they open your app, their rating gives them priority, their devices provide compute. You write the UI. The network does the thinking. No API keys. No billing. No rate limits. Just build.
 
 API without a device = last in line. We do NOT train on API data.
 
@@ -36,9 +36,10 @@ Code is open. Rules change by vote.
 ║  Rating = permanent contribution. Transferable.      ║
 ║  Rating = your passport across all apps.             ║
 ║                                                      ║
-║  Developers don't pay for AI.                        ║
-║  Users bring their own compute.                      ║
-║  Developer builds interface, network provides AI.    ║
+║  Developers: build anything with free AI.             ║
+║  No API keys. No billing. No rate limits.            ║
+║  Your users bring compute. You build the interface.  ║
+║  The network does the thinking.                      ║
 ║                                                      ║
 ║  API without device = last in queue.                 ║
 ║  We do NOT train on API data.                        ║
@@ -62,7 +63,7 @@ All compute, all AI, all services are free. The model belongs to everyone. The n
 
 - **Coordinator**: Manages request routing, track assignment, training task distribution, and result merging. Open source. Anyone can run one. Devices choose which coordinator to trust.
 - **Track Node**: Any device running one or more model tracks. Computes inference and training tasks. Earns rating.
-- **Client**: Any application making inference requests. Priority determined by the user's rating, not by the app developer.
+- **Client**: Any application making inference requests. Developers build the app, but the USER's rating determines priority — not the developer's wallet. Building on GPU Network costs $0. Your users bring their own compute and rating. You bring the idea and the interface.
 
 ### 2.2 Request Flow
 
