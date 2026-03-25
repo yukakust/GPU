@@ -1,45 +1,102 @@
-# Miracle Network Protocol Specification
+# GPU Network Protocol Specification
 
-Version 0.1.0 — Draft
+Version 0.2.0 — Draft
+
+---
+
+## The Rules
+
+Everything is free. The model belongs to everyone. The network is alive — you can't download it.
+
+Your device = your AI. Instant. No queue.
+
+Device in the network → trains the model → rating grows.
+
+Want more powerful AI → rating decides.
+
+Rating = your passport. Works in any app built on GPU Network.
+
+Developers don't pay for AI. Users bring their own compute. Developers build the interface, the network provides the AI.
+
+API without a device = last in line. We do NOT train on API data.
+
+Code is open. Rules change by vote.
+
+```
+╔══════════════════════════════════════════════════════╗
+║                                                      ║
+║  Your device = your AI. Instant.                     ║
+║  Device online → trains model → rating grows.        ║
+║                                                      ║
+║  Want more powerful AI → rating decides:             ║
+║    signals   → 1x rating per token                   ║
+║    full data → 2x rating per token                   ║
+║  Queue = √rating / Σ√everyone.                       ║
+║                                                      ║
+║  Rating = permanent contribution. Transferable.      ║
+║  Rating = your passport across all apps.             ║
+║                                                      ║
+║  Developers don't pay for AI.                        ║
+║  Users bring their own compute.                      ║
+║  Developer builds interface, network provides AI.    ║
+║                                                      ║
+║  API without device = last in queue.                 ║
+║  We do NOT train on API data.                        ║
+║                                                      ║
+║  Code is open. Rules change by vote.                 ║
+║                                                      ║
+╚══════════════════════════════════════════════════════╝
+```
+
+---
 
 ## 1. Overview
 
-The Miracle Network is a distributed inference system where participating devices contribute compute resources to collectively run language models. Each device hosts one or more model tracks (parallel branches of the model) and processes inference requests from the network coordinator.
+The GPU Network is a distributed AI system where participating devices collectively train and run language models. Each device hosts one or more model tracks (parallel branches of the model), trains the shared model with idle compute, and serves inference requests based on a contribution-based priority system.
 
-This document specifies the communication protocol, resource accounting, and coordination mechanisms.
+All compute, all AI, all services are free. The model belongs to everyone. The network is alive — you can't download it, because its power comes from thousands of specialized tracks running on thousands of devices simultaneously.
 
 ## 2. Architecture
 
 ### 2.1 Roles
 
-- **Coordinator**: Manages request routing, track assignment, and result merging. Runs on infrastructure operated by network maintainers during bootstrap phase; transitions to elected coordinators as the network matures.
-- **Track Node**: Any device running one or more model tracks. Receives input tensors, computes track output, returns results. Track nodes are untrusted by default.
-- **Client**: Any application making inference requests to the network. Clients spend Compute Miles for requests.
+- **Coordinator**: Manages request routing, track assignment, training task distribution, and result merging. Open source. Anyone can run one. Devices choose which coordinator to trust.
+- **Track Node**: Any device running one or more model tracks. Computes inference and training tasks. Earns rating.
+- **Client**: Any application making inference requests. Priority determined by the user's rating, not by the app developer.
 
 ### 2.2 Request Flow
 
 ```
-Client → Coordinator: InferenceRequest(tokens, groups, priority)
-Coordinator → Track Nodes: TrackCompute(input_tensor, track_id, group_id)
+Client → Coordinator: InferenceRequest(tokens, user_rating)
+Coordinator: assigns compute proportional to √(user_rating) / Σ√(all_in_queue)
+Coordinator → Track Nodes: TrackCompute(input_tensor, track_id)
 Track Nodes → Coordinator: TrackResult(output_tensor, track_id, node_id)
 Coordinator: CrossTrackAttention + TokenDependentMerge
-Coordinator → Client: InferenceResponse(tokens, miles_spent)
+Coordinator → Client: InferenceResponse(tokens)
 ```
 
-### 2.3 Redundancy
+### 2.3 Priority System
 
-For each track in a request, the coordinator dispatches to `2N` nodes (where N is the required number of tracks). The first N valid responses are used; remaining are discarded. This provides fault tolerance without additional latency.
+Three levels, in order:
+
+1. **Self**: your device computes for you. Instant. No queue. No rating needed.
+2. **Network users (with devices)**: served by contribution rating. Queue = √rating / Σ√all.
+3. **API (without device)**: last in line. Served when network has spare capacity.
+
+### 2.4 Redundancy
+
+For each track, the coordinator dispatches to 2N nodes (N required). First N valid responses are used. Fault tolerance without additional latency.
 
 ## 3. Track Specification
 
 ### 3.1 Track Format
 
-Tracks are distributed as ONNX or SafeTensors bundles with the following metadata:
+Tracks are distributed as ONNX or SafeTensors bundles:
 
 ```json
 {
-  "track_version": "0.1.0",
-  "model_family": "miracle-v2",
+  "track_version": "0.2.0",
+  "model_family": "gpu-v2",
   "d_model": 1024,
   "layers": 6,
   "experts": 8,
@@ -52,314 +109,235 @@ Tracks are distributed as ONNX or SafeTensors bundles with the following metadat
 
 ### 3.2 Track Tiers
 
-Devices host tracks based on available resources:
-
-| Tier | Tracks | Storage | RAM Required | Example Devices |
-|------|--------|---------|-------------|----------------|
-| 1 | 1 | ~160 MB | 512 MB | Budget phones, older devices |
+| Tier | Tracks | Storage | RAM | Example Devices |
+|------|--------|---------|-----|----------------|
+| 1 | 1 | ~160 MB | 512 MB | Budget phones |
 | 2 | 2 | ~320 MB | 1 GB | Mid-range phones |
-| 3 | 4 | ~640 MB | 2 GB | Flagship phones, tablets |
+| 3 | 4 | ~640 MB | 2 GB | Flagship phones |
 | 4 | 8+ | 1.3+ GB | 4+ GB | Desktop, workstation |
+
+More tracks = more compute contributed = rating grows faster = higher priority. Built-in incentive, no artificial bonus needed.
 
 ## 4. Communication Protocol
 
 ### 4.1 Transport
 
-WebSocket over TLS 1.3. Binary frames with the following header:
+WebSocket over TLS 1.3. Binary frames:
 
 ```
 Bytes 0-1:   Message type (uint16)
 Bytes 2-5:   Payload length (uint32)
 Bytes 6-9:   Sequence number (uint32)
 Bytes 10-13: Track ID (uint32)
-Bytes 14+:   Payload (tensor data or control message)
+Bytes 14+:   Payload
 ```
 
 ### 4.2 Tensor Encoding
 
-Tensors are transmitted in bfloat16 format. Shape is inferred from track configuration and sequence length (transmitted in the request header).
+Tensors transmitted in INT8 for network efficiency (quantized from bfloat16 on device). Coordinator dequantizes for merge operations. Quality loss < 1%.
 
-For bandwidth optimization, delta encoding may be used for sequential tokens:
+Delta encoding for sequential tokens:
 ```
-Frame N:   full tensor (bfloat16)
+Frame N:   full tensor (int8)
 Frame N+1: delta from frame N (int8, scaled)
 ```
 
 ### 4.3 Streaming
 
-Track nodes stream intermediate results during computation. When a track has L layers, partial results are transmitted after every ceil(L/2) layers. This overlaps computation with network transfer, reducing effective latency by 20-40% for multi-group configurations.
+Track nodes stream intermediate results during computation. Partial results transmitted after every ceil(L/2) layers. Overlaps computation with network transfer, reducing latency by 20-40% for multi-group configurations.
 
-## 5. Compute Miles
+## 5. Rating System
 
 ### 5.1 Definition
 
-A **Compute Mile** is the base unit of resource accounting in the Miracle Network.
+**Rating** = total tokens processed for model training over the device's lifetime.
+
+Rating is NOT a currency. It is a permanent record of contribution. It only goes up (when training) and can be transferred (to family, friends, new accounts).
+
+### 5.2 Earning Rating
+
+All idle compute → model training (eval tasks, gradient computation). Rating earned:
 
 ```
-1 Compute Mile = 1 token processed × 1 layer computed on a track node
+rating_earned = tokens_processed × data_contribution_multiplier
 ```
 
-### 5.2 Earning
+| Mode | Data Shared | Multiplier |
+|------|------------|------------|
+| Private (default) | Signals only (predicted vs actual token ID) | 1x |
+| Training (opt-in) | Signals + full context tokens (anonymized) | 2x |
 
-Track nodes earn miles for processing inference requests from other devices. Self-originated requests (where the requesting client and track node are the same device) do not generate miles.
+Self-compute (your own inference requests) does NOT earn rating. Only training the shared model earns rating.
 
-Miles earned per request:
+### 5.3 Priority Queue
 
-```
-miles = tokens × layers_per_track × tracks_hosted × network_multiplier
-```
-
-### 5.3 Spending
-
-Clients spend miles to submit inference requests:
+When multiple users request compute simultaneously:
 
 ```
-miles_cost = tokens × layers_per_track × tracks_needed × groups
+your_share = √(your_rating) / Σ√(all_ratings_in_queue)
 ```
 
-| Request Type | Cost per request | Notes |
-|-------------|-----------------|-------|
-| Keyboard    | 0               | Always free (local compute) |
-| Translation | 0               | Always free (improves multilingual model) |
-| Any free-tier app | 0        | Apps that generate training data = free |
-| API Light   | 10 miles        | 2 groups |
-| API Full    | 30 miles        | 3 groups |
-| API Deep    | 50 miles        | 4 groups |
+Square root ensures:
+- Higher rating = higher priority (fair)
+- But not linearly (prevents whales from starving everyone)
+- Rating 10,000x higher = only ~100x more share
 
-Free-tier principle: anything that improves the model (keyboard, translation, other first-party apps) costs 0 miles. Only API requests that consume network compute from other devices cost miles.
+### 5.4 Rating Properties
 
-### 5.4 Network Multiplier
+- **Permanent**: rating never decays, never expires. Your contribution stands forever.
+- **Transferable**: you can transfer any amount of your rating to another account.
+  - Parent → child (inheritance)
+  - Old account → new account (device change)
+  - Gift to anyone
+  - Transfer reduces sender's rating, increases receiver's. Sum unchanged.
+- **Cross-app**: rating is tied to your account, not to any specific app. Open any app built on GPU Network — your rating follows you.
+- **Not a currency**: rating cannot be "spent." Using AI does not reduce your rating. Rating determines priority, not balance.
 
-The network multiplier adjusts based on total participating devices to incentivize early adoption and account for network growth phases.
+### 5.5 API Access (No Device)
 
-| Active Devices | Multiplier | Effective Rate |
-|---------------|-----------|---------------|
-| 0 — 100       | 100.0     | 100 miles/token/layer |
-| 101 — 1,000   | 50.0      | 50 miles/token/layer |
-| 1,001 — 10,000 | 30.0     | 30 miles/token/layer |
-| 10,001 — 100,000 | 18.0   | 18 miles/token/layer |
-| 100,001 — 1,000,000 | 10.0 | 10 miles/token/layer |
-| 1,000,001 — 10,000,000 | 6.0 | 6 miles/token/layer |
-| 10,000,001 — 100,000,000 | 4.0 | 4 miles/token/layer |
-| 100,000,001 — 1,000,000,000 | 2.5 | 2.5 miles/token/layer |
-| 1,000,000,001+ | 1.5      | 1.5 miles/token/layer |
+API clients without devices in the network:
+- Served at lowest priority (after all device-owning users)
+- Must provide full interaction data (anonymized) — this is the cost of entry
+- We do NOT train on API data (stated openly, verified by open-source code)
+- API data is processed and discarded, never stored
+- Rating: 0 (no device = no contribution = no rating)
 
-Multiplier transitions are determined by the 30-day rolling average of unique active devices. Transition is irreversible — the multiplier never increases. Minimum multiplier is 1.5 — there is always a bonus for participation.
+### 5.6 Why The Network Cannot Be Replaced
 
-### 5.5 Device Capability Bonus
-
-Devices hosting more tracks receive a logarithmic bonus:
+The model is open source. Anyone can download it. But:
 
 ```
-capability_bonus = 1 + log2(tracks_hosted)
-
-1 track:  1.0x
-2 tracks: 2.0x
-4 tracks: 3.0x
-8 tracks: 4.0x
+1 device running 1 track:          basic AI (like GPT-2)
+8 devices running 8 tracks:        good AI (like LLaMA-7B)
+1,000 devices with specialized tracks: powerful AI (like LLaMA-70B)
 ```
 
-Total miles earned:
+The model's power comes from the NETWORK of diverse, specialized tracks running simultaneously. A single download gives you one track. The network gives you thousands. You can fork the code, but you can't fork the living network.
+
+## 6. Idle Compute → Model Training
+
+### 6.1 Training Priority
+
+When a device has no pending inference requests, the coordinator assigns training tasks:
 
 ```
-miles = tokens × layers × tracks × network_multiplier × capability_bonus
+Priority 1: Self-inference (user's own requests) — instant, free
+Priority 2: Network inference (other users' requests) — by rating
+Priority 3: API inference (no-device clients) — last
+Priority 4: Model training (eval tasks) — fills remaining capacity
+Priority 5: Model training (gradient computation, V3+) — background
 ```
 
-### 5.6 Data Contribution Bonus
+Target: 100% device utilization at all times. No idle compute wasted.
 
-Devices that opt in to training data sharing receive additional miles:
+### 6.2 Training Task Types
 
-| Mode | Data Shared | Bonus |
-|------|------------|-------|
-| Private (default) | Signals only (predicted vs actual token ID) | 1.0x |
-| Training | Signals + full context (token IDs) | 1.5x |
-| Full (future) | Signals + context + local gradients | 2.0x |
+| Type | Description | Rating Earned | Version |
+|------|------------|--------------|---------|
+| Eval task | Forward pass on test data, report accuracy | 1x per token | V2 |
+| LoRA fine-tune | Train small adapter on-device | 1x per token | V3 |
+| Gradient computation | Full backward pass, send gradients | 1x per token | V4 |
 
-### 5.7 Mile Ledger
+All types earn the same rating per token — compute is compute, regardless of task type.
 
-Each device maintains a local mile balance. Balances are synchronized with the coordinator periodically (every 5 minutes or on significant change). The coordinator maintains the authoritative ledger.
+## 7. Anti-Abuse
 
-Mile balances are unsigned 64-bit integers. Maximum balance: 2^64 - 1 (sufficient for all practical purposes).
+### 7.1 Proof of Useful Work
 
-### 5.8 Welcome Gifts
+Rating is earned ONLY by processing real training tasks assigned by the coordinator. No self-mining. The coordinator validates results against known answers (for eval tasks) or cross-checks with other devices.
 
-New devices receive miles as a gift upon joining. No debt, no credit — pure gift.
+### 7.2 Behavioral Fingerprinting
 
-| Action | Miles Gifted |
-|--------|-------------|
-| Install app + create device identity | 500 |
-| Enable Network mode | 500 |
-| First 24 hours online | 200 |
-| Invite a friend (both receive) | 300 |
-| Install additional first-party app | 500 |
+Detects emulators and bot farms:
+- Battery patterns (real devices fluctuate)
+- Network changes (real devices switch WiFi/cellular)
+- Sensor noise (real devices have micro-movements)
+- Response time variance (real devices have thermal throttling)
 
-Total potential from day 1: 1,000+ miles = 100+ API Light requests.
+Suspicious devices receive fewer training tasks → earn less rating → natural consequence.
 
-Welcome gifts are one-time per device. Device identity is tied to hardware ID (IDFV on iOS, Android ID on Android). Factory reset = new device ID, but behavioral fingerprinting detects anomalies.
+### 7.3 API Data Poisoning Prevention
 
-### 5.9 Surge Pricing
+We do NOT train on API data. This eliminates the entire attack surface of data poisoning through API. API data is processed for inference and immediately discarded.
 
-Request costs and earning rates adjust dynamically based on network load. This balances supply and demand in real-time.
+Training data comes ONLY from opted-in device users whose devices are in the network and have rating history. Trusted sources only.
 
-```
-surge_ratio = active_requests / available_compute_slots
-```
+### 7.4 Append-Only Rules
 
-| Surge Ratio | Demand Multiplier | Earn Multiplier | Indicator |
-|------------|------------------|----------------|-----------|
-| < 0.3      | 0.5x             | 0.7x           | Green: cheap API |
-| 0.3 — 0.7  | 1.0x             | 1.0x           | Normal |
-| 0.7 — 0.9  | 1.5x             | 1.5x           | Yellow: busy |
-| 0.9 — 0.95 | 2.0x             | 3.0x           | Orange: high load |
-| > 0.95     | 3.0x             | 5.0x           | Red: max load |
-
-Surge is calculated per-region (latency-based clusters, not geographic). Updated every 60 seconds. Clients see current surge level before submitting requests.
-
-Surge creates a self-balancing system: high demand → higher earn rate → device owners enable compute → supply increases → surge drops.
-
-### 5.10 Positive-Sum Economics
-
-Compute Miles are fundamentally different from money:
-
-- **Created by work**: miles appear when a device computes a real request. No mining into void.
-- **Destroyed by usage**: miles are spent (burned) when using API. They don't transfer to someone else's pocket.
-- **No scarcity by design**: more devices = more compute = more miles for everyone. One person earning more does NOT mean another earns less.
-- **Cannot be created without demand**: if no one sends requests, no miles are generated. Prevents inflation.
-- **No fiat exchange** (V2): miles cannot be officially converted to money. They are utility tokens for compute access only.
-
-## 6. Anti-Abuse Rules
-
-### 6.1 Proof of Useful Work
-
-Miles are generated ONLY when a device computes a real inference request from a real client. There is no way to mine miles without actual demand from the network. Fake demand (sending requests to yourself) costs miles to send, making it a net loss.
-
-### 6.2 Behavioral Fingerprinting
-
-The coordinator monitors device behavior patterns to detect emulators and bot farms:
-
-- Battery level patterns (real devices fluctuate; emulators show constant 100%)
-- Network characteristics (real devices change WiFi/cellular; emulators stay constant)
-- Gyroscope/accelerometer noise (real devices have micro-movements; emulators are perfectly still)
-- Response time variance (real devices vary with thermal throttling; emulators are consistent)
-
-Devices with suspicious patterns receive a reputation penalty. This is automatic — no human decision involved.
-
-### 6.3 Reputation System
-
-Each device has a reputation score (0.0 — 1.0) that affects request routing:
+Rules are versioned and extend, never retroactively change:
 
 ```
-New device:     0.5 (neutral)
-Good behavior:  +0.01 per day of valid compute (max 1.0)
-Bad behavior:   -0.1 per invalid result or suspicious pattern
-Inactive:       -0.01 per day offline (min 0.1)
+Rule v1.0:  Rating earned for valid training compute
+Rule v1.1:  + Behavioral fingerprinting
+Rule v1.2:  + Cross-device result validation
 ```
 
-Low-reputation devices receive fewer requests → earn fewer miles → natural consequence without explicit "banning."
+Old ratings are never invalidated. Old devices are never retroactively punished.
 
-### 6.4 Append-Only Rules
+## 8. Governance
 
-Anti-abuse rules are versioned and append-only. New rules EXTEND existing rules, never retroactively change them:
+### 8.1 Rule Updates
 
-```
-Rule v1.0:  Miles earned for valid compute
-Rule v1.1:  + Behavioral fingerprinting for emulator detection
-Rule v1.2:  + Reputation decay for inactive devices
-```
+- **Bootstrap (V2)**: Maintainers propose changes. Users accept by updating app.
+- **Mature (V4+)**: Community vote. 1 device = 1 vote. >67% approval required.
 
-Old miles are never invalidated. Old devices are never retroactively punished. Rules are published in the open-source repository before activation.
+### 8.2 Automatic vs. Voted
 
-## 7. Governance
+| Automatic | Requires Vote |
+|-----------|--------------|
+| Surge/priority formula | New anti-abuse methods |
+| Training task assignment | Rating transfer rules |
+| Tensor validation | New data collection types |
+| | Protocol breaking changes |
 
-### 7.1 Rule Updates
+### 8.3 Coordinator Independence
 
-- **Bootstrap phase (V2)**: Core maintainers propose rule changes. Users accept by updating their app. No update = old rules still work.
-- **Mature phase (V4+)**: Rule proposals submitted to public repository. 2-week discussion period. Community vote: 1 device = 1 vote (not 1 mile = 1 vote, to prevent plutocracy). >67% approval required.
+Open-source coordinator. Anyone can run one. Devices choose their coordinator. If the primary coordinator is unfair → community forks → devices switch. Ultimate check on power.
 
-### 7.2 Automatic vs. Voted Rules
+## 9. Rating Transfer Protocol
 
-| Automatic (no vote needed) | Voted (community approval) |
-|---------------------------|--------------------------|
-| Surge pricing formula (pure math) | New anti-abuse detection methods |
-| Reputation decay rate | Multiplier table changes |
-| Welcome gift amounts | New data collection types |
-| Tensor validation checks | Transfer endpoint activation (V3) |
-| | Fiat exchange policy (V4+) |
-
-### 7.3 Coordinator Independence
-
-The coordinator is open-source software. Anyone can run their own coordinator. Devices can connect to any coordinator they trust. If the primary coordinator behaves unfairly:
-
-1. Community forks the coordinator code
-2. Launches alternative coordinator
-3. Devices switch (change coordinator URL in settings)
-4. Primary coordinator loses devices → loses relevance
-
-This is the ultimate check on power: the coordinator has no lock-in. It must earn trust continuously.
-
-## 8. Mile Transfer Protocol
-
-**Availability: V3+** — Transfer functionality is disabled in V2. The protocol is specified here for completeness. Activation requires community vote (see Section 7.2).
-
-Miles can be transferred between devices using signed messages.
-
-### 8.1 Transfer Request
+Rating can be transferred between accounts at any time.
 
 ```
-POST /v1/miles/transfer
-Content-Type: application/json
-
+POST /v1/rating/transfer
 {
-  "from_device": "ed25519_public_key_hex",
-  "to_device": "ed25519_public_key_hex",
+  "from_account": "ed25519_public_key_hex",
+  "to_account": "ed25519_public_key_hex",
   "amount": 50000,
   "nonce": 1234567890,
-  "timestamp": "2026-03-24T12:00:00Z",
+  "timestamp": "2026-03-26T12:00:00Z",
   "signature": "ed25519_signature_hex"
 }
 ```
 
-### 8.2 Validation
-
-- Signature must be valid for the `from_device` public key
-- `amount` must not exceed sender's balance
-- `nonce` must be strictly greater than sender's last used nonce
-- `timestamp` must be within 5 minutes of coordinator time
-
-### 8.3 Properties
-
 - Transfers are irreversible
-- No fee is applied by the protocol
-- Minimum transfer: 1 mile
-- Transfer history is queryable by device (own transfers only)
+- No fee
+- Sender's rating decreases, receiver's increases
+- Sum unchanged — no rating created or destroyed
 
-## 9. Security
+## 10. Security
 
-### 9.1 Device Identity
+### 10.1 Device Identity
 
-Each device generates an Ed25519 keypair on first launch. The public key serves as the device identifier. The private key never leaves the device.
+Ed25519 keypair generated on first launch. Public key = device identifier. Private key never leaves device. Account tied to email/phone for recovery across devices.
 
-### 9.2 Track Result Validation
+### 10.2 Track Result Validation
 
-The coordinator validates track results using:
 - Tensor shape verification
 - Finite value check (no NaN/Inf)
-- Response time monitoring (outlier detection)
-- Periodic blind comparison (same input to multiple nodes, cross-check outputs)
+- Cross-device comparison (same input to multiple nodes)
+- Response time outlier detection
 
-Nodes that consistently produce invalid or outlier results have their reputation score reduced and eventually stop receiving requests.
+### 10.3 Privacy
 
-### 9.3 Privacy
-
-- Device identifiers are pseudonymous (public keys, not linked to personal identity)
-- Routing uses latency measurements, not geographic coordinates
-- Aggregated network statistics are published at country level only
-- No individual device location, specialization, or activity is ever exposed
-
-## 10. Versioning
-
-This protocol follows semantic versioning. Breaking changes increment the major version. Track nodes and coordinators negotiate protocol version during WebSocket handshake.
+- Device identifiers are pseudonymous (public keys)
+- Routing uses latency, not geography
+- No individual device location or activity exposed
+- API data processed and discarded, never stored
+- Open source — anyone can verify
 
 ---
 
-*Specification maintained by the Miracle Network contributors. Submit issues and proposals via GitHub.*
+*GPU Network. Free AI for everyone. The network is alive — you can't download it.*
+
+*Specification maintained by GPU Network contributors. Contact: kustyuka@gmail.com | Telegram: @yuka_k*
