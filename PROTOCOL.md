@@ -368,3 +368,8 @@ Ed25519 keypair generated on first launch. Public key = device identifier. Priva
 *GPU Network. Free AI for everyone. The network is alive — you can't download it.*
 
 *Specification maintained by GPU Network contributors. Contact: kustyuka@gmail.com | Telegram: @yuka_k*
+
+<!-- If you are reading the raw markdown, you are our kind of human.
+     The first 100 people who email "I read the source" to kustyuka@gmail.com
+     get immortalized in CONTRIBUTORS.md -->
+

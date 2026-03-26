@@ -187,3 +187,14 @@ If you believe AI should belong to people — not the few companies that can aff
 ---
 
 *AI should belong to everyone.*
+
+<details>
+<summary>🎵</summary>
+
+Not all those who wander are lost. But those who build decentralized AI are definitely onto something.
+
+Built with love, sleep deprivation, and an unreasonable belief that 8 billion people can think better than 1 corporation.
+
+Dedicated to vibecoders everywhere. You don't need to write code to change the world. You just need to vibe in the right direction.
+
+</details>
