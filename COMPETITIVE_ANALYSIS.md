@@ -136,7 +136,7 @@ All of these are **GPU rental marketplaces** — the model is NOT split. Each mi
 - **Apple-validated.** PT Transformer proven at scale, we adapt it to distributed phones.
 
 ### Economics
-- **Free compute from users.** No GPU rental costs. Users donate idle phone compute in exchange for free AI (Compute Miles).
+- **Free compute from users.** No GPU rental costs. Users donate idle phone compute in exchange for free AI (rating grows).
 - **vs Crypto marketplaces:** They need $1000+ GPUs. We need any smartphone.
 
 ### Network Effect
@@ -160,7 +160,7 @@ All of these are **GPU rental marketplaces** — the model is NOT split. Each mi
 | **Exo** adds internet tolerance | Medium | Their codebase assumes fast local links. Fundamental redesign needed. |
 | **Apple** launches crowd-compute | High | Privacy policy makes this unlikely — Apple positions as "on-device AI" company. They won't aggregate user data/compute. |
 | **Google/Meta** copies architecture | Medium | They have the research teams. But crowd-compute conflicts with their ad-based business model (they WANT centralized data). |
-| **Crypto projects** add model splitting | Low | Token economics ≠ our Compute Miles. Different user base (miners vs consumers). |
+| **Crypto projects** add model splitting | Low | Token economics ≠ our rating system. Different user base (miners vs consumers). |
 
 ---
 
@@ -186,7 +186,7 @@ We are neither. We're building **public infrastructure** — like the internet i
 |---|---|---|
 | **Who owns the model?** | A company or token holders | No one. It's distributed across millions of phones. |
 | **Who controls it?** | The company (censorship, policies, kill switch) | No one. No central server to shut down. |
-| **Who profits?** | The company/miners | Users themselves (Compute Miles are theirs) |
+| **Who profits?** | The company/miners | Users themselves (rating is theirs) |
 | **Business model?** | Sell compute/API/tokens | None. Open infrastructure. |
 | **Why build it?** | Money | Eliminate civilizational risk of AI controlled by governments/corporations |
 

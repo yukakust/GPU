@@ -66,13 +66,13 @@ Each track is sent to 2 phones: top-1 expert (best) and top-2 expert (second bes
 Query: "write a sorting function in Python"
 
 Router:
-  Code   → top-1: Masha's phone  |  top-2: Petya's phone    (backup)
-  Lang   → top-1: Kolya's phone  |  top-2: Dima's phone     (backup)
-  Know   → top-1: Anya's phone   |  top-2: Sasha's phone    (backup)
-  Style  → top-1: Lena's phone   |  top-2: Misha's phone    (backup)
+  Code   → top-1: Cameron's phone  |  top-2: Gordon's phone    (backup)
+  Lang   → top-1: Donna's phone    |  top-2: Bos's phone       (backup)
+  Know   → top-1: Joe's phone      |  top-2: Haley's phone     (backup)
+  Style  → top-1: Joanie's phone   |  top-2: Tom's phone       (backup)
 
 Send to all 8. Take the first response from each track type.
-Masha is stuck → Petya is already computing → take his. No delay.
+Cameron is stuck → Gordon is already computing → take his. No delay.
 ```
 
 Token-dependent merge automatically accounts for top-2 arriving instead of top-1 (slightly lower weight).

@@ -15,7 +15,7 @@ Build a keyboard for any platform (Android, iOS, Web) that connects to the GPU d
 │                  │──HTTP──►│                    │
 │  - T9 offline    │         │  - Model inference │
 │  - Autocorrect   │         │  - Signal store    │
-│  - Prediction UI │         │  - Compute Miles   │
+│  - Prediction UI │         │  - Rating   │
 │  - Signal collect│         │                    │
 └──────────────────┘         └──────────────────┘
 ```
@@ -278,11 +278,11 @@ Do NOT show predictions when:
 
 ---
 
-## 5. Compute Miles Integration
+## 5. Rating Integration
 
 ### Display
 
-Show earned miles counter in keyboard settings:
+Show rating counter in keyboard settings:
 ```
 Settings → GPU Keyboard → ⚡ 847
 ```
@@ -296,9 +296,9 @@ When Network Mode is enabled:
 2. Receives inference requests from other users
 3. Processes requests using local track (ONNX model)
 4. Returns results to coordinator
-5. Earns Compute Miles
+5. Earns Rating
 
-See [PROTOCOL.md](./PROTOCOL.md) for full Compute Miles specification.
+See [PROTOCOL.md](./PROTOCOL.md) for full Rating specification.
 
 ---
 
