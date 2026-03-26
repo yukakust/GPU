@@ -1,147 +1,147 @@
 # PT-MoE Solutions — Brainstorm Session
 
-## Ключевое архитектурное решение: минимум групп, максимум треков
+## Key Architectural Decision: Minimize Groups, Maximize Tracks
 
-### Суть
-Группа = последовательный round-trip по сети = +50-100ms задержки.
-Трек = параллельный вычислитель на отдельном телефоне = бесплатный compute.
+### Core Idea
+Group = sequential round-trip over network = +50-100ms latency.
+Track = parallel compute unit on a separate phone = free compute.
 
-**Цель: минимизировать группы (1-2), максимизировать треки (4-32+).**
+**Goal: minimize groups (1-2), maximize tracks (4-32+).**
 
-### Архитектура: 1-2 группы × N треков
+### Architecture: 1-2 Groups x N Tracks
 
 ```
-Fast (autocomplete):   1 группа × 1-2 трека  = локально, ~30-50ms
-Normal (предложения):  1 группа × 4 трека    = 1 round-trip, ~150-200ms
-Smart (сложный ответ): 2 группы × 4+ треков   = 2 round-trips, ~300-400ms
+Fast (autocomplete):   1 group × 1-2 tracks  = local, ~30-50ms
+Normal (suggestions):  1 group × 4 tracks     = 1 round-trip, ~150-200ms
+Smart (complex answer): 2 groups × 4+ tracks  = 2 round-trips, ~300-400ms
 ```
 
-При 1 группе:
+With 1 group:
 ```
-     Вход (текст)
+     Input (text)
           │
   ┌───┬───┴───┬───┐
   ▼   ▼       ▼   ▼
-[T1] [T2]   [T3] [T4]     ← параллельно на 4 телефонах
- 6L   6L     6L   6L        каждый считает свои слои внутри
+[T1] [T2]   [T3] [T4]     ← in parallel on 4 phones
+ 6L   6L     6L   6L        each computes its layers internally
   │   │       │   │
   └───┴───┬───┴───┘
           ▼
- Cross-Track Attention      ← обмен информацией между треками
+ Cross-Track Attention      ← information exchange between tracks
           ▼
- Token-Dependent Merge      ← умное объединение
+ Token-Dependent Merge      ← smart aggregation
           ▼
-       Ответ
+       Response
 ```
 
-1 broadcast → все считают параллельно → 1 gather → CTA + merge → готово.
+1 broadcast → all compute in parallel → 1 gather → CTA + merge → done.
 
-При 2 группах — то же самое дважды: первый раунд "о чём вопрос?", второй "вот ответ с учётом контекста от всех".
+With 2 groups — the same thing twice: first round "what is the question about?", second "here is the answer considering context from all".
 
-### Терминология
+### Terminology
 
-**Группа** = раунд обсуждения между телефонами. Все телефоны отдали результаты → merge → если нужно, ещё раунд. Каждая группа = 1 round-trip по сети.
+**Group** = a round of discussion between phones. All phones return their results → merge → if needed, another round. Each group = 1 network round-trip.
 
-**Трек** = один телефон-специалист. Внутри — последовательные слои (6-12 штук). Телефон считает их быстро, локально, ~50-100ms.
+**Track** = one specialist phone. Inside — sequential layers (6-12). The phone computes them quickly, locally, ~50-100ms.
 
-**Переменное число групп:**
+**Variable number of groups:**
 ```
-0 групп:  Локально, 1 трек, без сети.      "Прив" → "ет"           ~30ms
-1 группа: Спросили N телефонов, merge.      "Какая погода?" → ответ  ~150-200ms
-2 группы: Два раунда обсуждения.            "Напиши функцию..."     ~300-400ms
-3 группы: Три раунда (макс, для сложного).  "Проанализируй..."      ~500ms
+0 groups:  Local, 1 track, no network.          "Hi" → "there"            ~30ms
+1 group:   Asked N phones, merge.                "What's the weather?" → answer  ~150-200ms
+2 groups:  Two rounds of discussion.             "Write a function..."     ~300-400ms
+3 groups:  Three rounds (max, for complex).      "Analyze..."              ~500ms
 ```
 
-Число групп выбирается автоматически по entropy после каждого раунда:
-- entropy < 0.3 после раунда 1 → стоп, ответ уверенный
-- entropy > 0.3 → нужен ещё раунд
+Number of groups is chosen automatically by entropy after each round:
+- entropy < 0.3 after round 1 → stop, answer is confident
+- entropy > 0.3 → need another round
 
-ИЛИ задаётся приложением: клавиатура = 0-1, чат = 1-2, API = 2-3.
+OR set by application: keyboard = 0-1, chat = 1-2, API = 2-3.
 
-### Redundancy x2 с приоритетным routing
+### Redundancy x2 with Priority Routing
 
-Каждый трек отправляется на 2 телефона: top-1 эксперт (лучший) и top-2 эксперт (второй лучший).
+Each track is sent to 2 phones: top-1 expert (best) and top-2 expert (second best).
 
 ```
-Запрос: "напиши функцию сортировки на Python"
+Query: "write a sorting function in Python"
 
 Router:
-  Code   → top-1: телефон Маши  |  top-2: телефон Пети    (бэкап)
-  Lang   → top-1: телефон Коли  |  top-2: телефон Димы    (бэкап)
-  Know   → top-1: телефон Ани   |  top-2: телефон Саши    (бэкап)
-  Style  → top-1: телефон Лены  |  top-2: телефон Миши    (бэкап)
+  Code   → top-1: Masha's phone  |  top-2: Petya's phone    (backup)
+  Lang   → top-1: Kolya's phone  |  top-2: Dima's phone     (backup)
+  Know   → top-1: Anya's phone   |  top-2: Sasha's phone    (backup)
+  Style  → top-1: Lena's phone   |  top-2: Misha's phone    (backup)
 
-Отправляем всем 8. Берём первый ответ от каждого типа трека.
-Маша зависла → Петя уже считает → берём его. Задержки нет.
+Send to all 8. Take the first response from each track type.
+Masha is stuck → Petya is already computing → take his. No delay.
 ```
 
-Token-dependent merge автоматически учтёт если пришёл top-2 вместо top-1 (чуть меньший вес).
+Token-dependent merge automatically accounts for top-2 arriving instead of top-1 (slightly lower weight).
 Cost: x2 compute. Benefit: resilience + speed.
 
-### Обоснование (статьи)
-- **Branch-Train-Merge** (Meta, 2022): 22.4B модель без sequential dependency = 2.5× дешевле обычной при том же качестве
-- **ParaFormer** (2025): качество определяется inter-branch collaboration, не глубиной
-- **Kraken** (NeurIPS 2024): параллельные ветки для multi-device inference, +35.6% speedup
-- **Transformers & Logarithmic Depth** (2024): логарифмическая глубина достаточна для многих задач
+### Justification (Papers)
+- **Branch-Train-Merge** (Meta, 2022): 22.4B model without sequential dependency = 2.5x cheaper than standard at the same quality
+- **ParaFormer** (2025): quality is determined by inter-branch collaboration, not depth
+- **Kraken** (NeurIPS 2024): parallel branches for multi-device inference, +35.6% speedup
+- **Transformers & Logarithmic Depth** (2024): logarithmic depth is sufficient for many tasks
 
 ---
 
-## Решение 1: Token-Dependent Merge
+## Solution 1: Token-Dependent Merge
 
-**Проблема:** Текущий merge = фиксированные скалярные веса. Все токены получают одинаковую смесь треков.
+**Problem:** Current merge = fixed scalar weights. All tokens get the same mix of tracks.
 
-**Решение:** `gate = softmax(Linear(d_model, num_tracks))` — каждый токен сам выбирает какие треки важнее.
+**Solution:** `gate = softmax(Linear(d_model, num_tracks))` — each token chooses which tracks matter more.
 
 ```python
-# Было: статические веса
-weights = softmax(self.gate_weights)  # [num_tracks] — одинаковые для всех токенов
+# Before: static weights
+weights = softmax(self.gate_weights)  # [num_tracks] — same for all tokens
 output = sum(w * track_out for w, track_out in zip(weights, track_outputs))
 
-# Стало: token-dependent
+# After: token-dependent
 # hidden shape: [batch, seq_len, d_model]
 weights = softmax(self.gate_proj(hidden))  # [batch, seq_len, num_tracks]
 output = sum(w.unsqueeze(-1) * track_out for w, track_out in zip(weights.unbind(-1), track_outputs))
 ```
 
-**Overhead:** +768 × num_tracks параметров (мизер).
+**Overhead:** +768 x num_tracks parameters (negligible).
 
-**Доказано:** Branchformer (ICML 2022) — ровно этот подход, обгоняет и Transformer и Conformer.
+**Proven:** Branchformer (ICML 2022) — exactly this approach, outperforms both Transformer and Conformer.
 
 ---
 
-## Решение 2: Cross-Track Attention
+## Solution 2: Cross-Track Attention
 
-**Проблема:** При 1 группе каждый трек работает вслепую — не знает что вычислили другие.
+**Problem:** With 1 group, each track works blind — doesn't know what others computed.
 
-**Решение:** Перед merge треки делают attention друг на друга.
+**Solution:** Before merge, tracks attend to each other.
 
 ```python
 # track_outputs: list of [batch, seq_len, d_model], len = num_tracks
 stacked = torch.stack(track_outputs, dim=2)  # [batch, seq_len, num_tracks, d_model]
 
-# Для каждой позиции: 4 вектора (от 4 треков) делают attention между собой
+# For each position: 4 vectors (from 4 tracks) attend to each other
 # Multi-head attention: Q, K, V all from stacked
-# Результат: каждый трек "знает" что вычислили остальные
+# Result: each track "knows" what the others computed
 
 cross_attn_out = self.cross_attention(stacked)  # same shape
 track_outputs = cross_attn_out.unbind(dim=2)    # list of [batch, seq_len, d_model]
 ```
 
-**Overhead:** ~4 × d_model² = 4 × 768² ≈ 2.4M params (при 4 heads). Считается на координаторе, не на телефоне.
+**Overhead:** ~4 x d_model^2 = 4 x 768^2 ~ 2.4M params (with 4 heads). Computed on the coordinator, not on the phone.
 
-**Обоснование:** ParaFormer показал что inter-branch communication — ключ к качеству параллельных архитектур.
+**Justification:** ParaFormer showed that inter-branch communication is the key to quality in parallel architectures.
 
 ---
 
-## Решение 3: Track Specialization (Diversity Loss + DropTrack)
+## Solution 3: Track Specialization (Diversity Loss + DropTrack)
 
-**Проблема:** Треки видят одинаковый вход, получают одинаковые градиенты → учат одно и то же.
+**Problem:** Tracks see the same input, receive the same gradients → learn the same thing.
 
-**Решение A — Diversity Loss:** Штраф за cosine similarity **выходов** треков.
+**Solution A — Diversity Loss:** Penalty for cosine similarity of track **outputs**.
 
 ```python
-# ВАЖНО: штрафуем ВЫХОДЫ (активации), не веса.
-# Статья "Geometric Regularization" (2025) доказала что на весах это НЕ работает.
+# IMPORTANT: penalize OUTPUTS (activations), not weights.
+# Paper "Geometric Regularization" (2025) proved that on weights this DOES NOT work.
 diversity_loss = 0
 for i in range(num_tracks):
     for j in range(i+1, num_tracks):
@@ -150,168 +150,168 @@ for i in range(num_tracks):
 diversity_loss *= lambda_diversity  # 0.01-0.1
 ```
 
-**Решение B — DropTrack:** Случайно выключаем 1+ трек при обучении (как DropPath в vision).
+**Solution B — DropTrack:** Randomly disable 1+ track during training (like DropPath in vision).
 
 ```python
 if self.training:
     drop_mask = torch.bernoulli(torch.full((num_tracks,), 1 - drop_rate))
-    # Гарантируем что хотя бы 1 трек жив
+    # Guarantee at least 1 track is alive
     if drop_mask.sum() == 0:
         drop_mask[torch.randint(num_tracks, (1,))] = 1
     track_outputs = [out * mask for out, mask in zip(track_outputs, drop_mask)]
 ```
 
-**Эффект DropTrack:**
-1. Каждый трек вынужден быть полезным самостоятельно
-2. Модель работает с ЛЮБЫМ подмножеством треков при inference
-3. Естественная специализация: если трек 1 уже хорош в языке, трек 2 "вынужден" учить что-то другое
+**DropTrack Effect:**
+1. Each track is forced to be useful on its own
+2. Model works with ANY subset of tracks at inference
+3. Natural specialization: if track 1 is already good at language, track 2 is "forced" to learn something else
 
 ---
 
-## Решение 4: Любой subset треков валиден (Tiered System)
+## Solution 4: Any Subset of Tracks is Valid (Tiered System)
 
-**Проблема:** Разные устройства имеют разные возможности.
+**Problem:** Different devices have different capabilities.
 
-**Решение:** DropTrack при обучении гарантирует что модель работает с любым подмножеством треков.
+**Solution:** DropTrack during training guarantees that the model works with any subset of tracks.
 
-### Тиры устройств
+### Device Tiers
 
-| Tier | Устройство | Треков | RAM | Storage | Что может |
-|------|-----------|:------:|:---:|:-------:|-----------|
-| 1 | Слабый телефон | 1 | ~50MB | ~150MB | Autocomplete, простые задачи |
-| 2 | Средний телефон | 2 | ~100MB | ~300MB | Предложения, средние задачи |
-| 3 | Мощный телефон | 4 | ~200MB | ~600MB | Полная модель, сложные задачи |
-| 4 | Комп / сервер | 8-32 | 1-4GB | 1.5-5GB | Максимальный интеллект |
+| Tier | Device | Tracks | RAM | Storage | Capability |
+|------|--------|:------:|:---:|:-------:|-----------|
+| 1 | Low-end phone | 1 | ~50MB | ~150MB | Autocomplete, simple tasks |
+| 2 | Mid-range phone | 2 | ~100MB | ~300MB | Suggestions, medium tasks |
+| 3 | High-end phone | 4 | ~200MB | ~600MB | Full model, complex tasks |
+| 4 | Desktop / server | 8-32 | 1-4GB | 1.5-5GB | Maximum intelligence |
 
-### Rating growth by device tier
+### Rating Growth by Device Tier
 
 More tracks = more training compute = higher rating = higher priority.
 
-| Устройство | Треков | Training compute | Rating growth |
-|------------|:------:|:----------------:|:-------------:|
-| Tier 1 (слабый телефон) | 1 | ~30ms/token | Slow but steady |
-| Tier 2 (средний) | 2 | ~60ms/token | 2× faster rating growth |
-| Tier 3 (мощный) | 4 | ~120ms/token | 4× faster rating growth |
-| Tier 4 (комп/сервер) | 8-32 | varies | Fastest rating growth |
+| Device | Tracks | Training compute | Rating growth |
+|--------|:------:|:----------------:|:-------------:|
+| Tier 1 (low-end phone) | 1 | ~30ms/token | Slow but steady |
+| Tier 2 (mid-range) | 2 | ~60ms/token | 2x faster rating growth |
+| Tier 3 (high-end) | 4 | ~120ms/token | 4x faster rating growth |
+| Tier 4 (desktop/server) | 8-32 | varies | Fastest rating growth |
 
 No multipliers, no bonuses. 1 token trained = 1 rating point (signals mode) or 2 rating points (full data mode). More tracks simply means more tokens processed per unit of time.
 
-### Как работает token-dependent merge с неполным набором треков
+### How Token-Dependent Merge Works with Incomplete Track Sets
 
 ```python
-# available_tracks — маска доступных треков [1, 0, 1, 1] = треки 0, 2, 3
+# available_tracks — mask of available tracks [1, 0, 1, 1] = tracks 0, 2, 3
 weights = softmax(self.gate_proj(hidden))  # [batch, seq, num_tracks]
-weights = weights * available_tracks       # зануляем недоступные
-weights = weights / weights.sum(dim=-1, keepdim=True)  # перенормализация
+weights = weights * available_tracks       # zero out unavailable
+weights = weights / weights.sum(dim=-1, keepdim=True)  # renormalize
 ```
 
-Merge автоматически перераспределяет веса на доступные треки.
+Merge automatically redistributes weights to available tracks.
 
 ---
 
-## Решение 5: Масштабирование треков = масштабирование интеллекта
+## Solution 5: Scaling Tracks = Scaling Intelligence
 
-Каждый новый трек = новый специалист в сети. Масштабируется линейно:
+Each new track = a new specialist in the network. Scales linearly:
 
 ```
-4 трека:   Language + Knowledge + Domain + Style              → базовая модель
-8 треков:  + Reasoning + Code + Math + Creative               → продвинутая
-16 треков: + Medical + Legal + Finance + Science + ...         → экспертная
-32 трека:  + персональные эксперты юзеров                     → уникальная
-64+ трека: каждый юзер = свой эксперт                         → бесконечный рост
+4 tracks:   Language + Knowledge + Domain + Style              → base model
+8 tracks:   + Reasoning + Code + Math + Creative               → advanced
+16 tracks:  + Medical + Legal + Finance + Science + ...         → expert
+32 tracks:  + personal user experts                             → unique
+64+ tracks: each user = their own expert                        → infinite growth
 ```
 
-Token-dependent merge масштабируется: Linear(d_model, N) — добавить трек = добавить столбец в матрицу весов.
+Token-dependent merge scales: Linear(d_model, N) — adding a track = adding a column to the weight matrix.
 
-### Добавление нового трека без переобучения всей модели
+### Adding a New Track Without Retraining the Entire Model
 
-1. Инициализировать новый трек из ближайшего существующего
-2. Расширить merge projection: добавить столбец (init ~0)
-3. Fine-tune только новый трек + merge layer
-4. Существующие треки не трогаем
+1. Initialize new track from nearest existing one
+2. Expand merge projection: add column (init ~0)
+3. Fine-tune only new track + merge layer
+4. Existing tracks are untouched
 
-Это BTX подход (Meta, 2024): Branch → Train independently → Mix via MoE routing.
+This is the BTX approach (Meta, 2024): Branch → Train independently → Mix via MoE routing.
 
 ---
 
-## Решение 6: Adaptive Depth (переменное число групп)
+## Solution 6: Adaptive Depth (Variable Number of Groups)
 
-### Тиры продуктов (явный выбор, не автоматика)
+### Product Tiers (Explicit Choice, Not Automatic)
 
 ```
-Keyboard:    0-1 группа   free (participant contributes compute)
-Chat/Babel:  1-2 группы   free (participant contributes compute + translation data)
-API Light:   2 группы     free, priority by rating
-API Full:    3 группы     free, priority by rating
-API Deep:    4 группы     free, priority by rating (API without device = last in queue)
+Keyboard:    0-1 group    free (participant contributes compute)
+Chat/Babel:  1-2 groups   free (participant contributes compute + translation data)
+API Light:   2 groups     free, priority by rating
+API Full:    3 groups     free, priority by rating
+API Deep:    4 groups     free, priority by rating (API without device = last in queue)
 ```
 
-Приложение/юзер выбирает сколько раундов. Никакой entropy-магии.
+Application/user chooses how many rounds. No entropy magic.
 
-### Почему НЕ entropy для выбора числа групп
+### Why NOT Entropy for Choosing Number of Groups
 
-1. Entropy после 1 группы ≠ entropy после всех групп (shallow model может быть "уверена" в мусоре)
-2. Калибровка порогов зависит от размера модели, данных, задачи — хрупко
-3. LM head между группами = blocking +5-10ms
+1. Entropy after 1 group != entropy after all groups (shallow model can be "confident" in garbage)
+2. Threshold calibration depends on model size, data, task — brittle
+3. LM head between groups = blocking +5-10ms
 
-### V3+ оптимизация: Confidence Head
+### V3+ Optimization: Confidence Head
 
-Маленький MLP (768 → 64 → 1) предсказывает "нужен ли ещё раунд?". Обучается вместе с моделью.
+Small MLP (768 → 64 → 1) predicts "is another round needed?". Trained jointly with the model.
 
 ```python
 confidence = sigmoid(self.confidence_head(hidden.mean(dim=1)))
 if confidence > 0.8:
-    break  # экономим round-trip
+    break  # save a round-trip
 ```
 
-API Full = до 3 групп, но confidence head может остановить после 2. Юзер платит за максимум, часто получает результат дешевле.
+API Full = up to 3 groups, but confidence head may stop after 2. Often delivers results with fewer rounds than the maximum.
 
-### Для обучения
+### For Training
 
-Loss на выходе КАЖДОЙ группы (intermediate exit heads), не только финальной. Модель учится давать полезный output после любого количества раундов.
+Loss on the output of EVERY group (intermediate exit heads), not just the final one. The model learns to produce useful output after any number of rounds.
 
 ---
 
-## Решение 7: Streaming между группами (Kraken-стиль)
+## Solution 7: Streaming Between Groups (Kraken-style)
 
-При 2+ группах — overlap compute и network:
+With 2+ groups — overlap compute and network:
 
 ```
-Обычно:     [compute 100ms] → [send 50ms] → [merge] → [compute 100ms] → [send 50ms]
-Streaming:  [compute L1-L3] → [send partial] → [compute L4-L6] → [send rest]
-                                    ↕ (параллельно)
-            Координатор уже начинает получать данные пока телефон досчитывает
+Standard:    [compute 100ms] → [send 50ms] → [merge] → [compute 100ms] → [send 50ms]
+Streaming:   [compute L1-L3] → [send partial] → [compute L4-L6] → [send rest]
+                                    ↕ (in parallel)
+             Coordinator already starts receiving data while phone finishes computing
 ```
 
-При 3 группах экономия: ~30-40% network latency (overlap вместо sequential).
+With 3 groups, savings: ~30-40% network latency (overlap instead of sequential).
 
-Критично для API Full/Deep (3-4 группы). Для клавиатуры (0-1 группа) не нужно.
+Critical for API Full/Deep (3-4 groups). Not needed for keyboard (0-1 group).
 
 ---
 
-## Решение 8: Rating — экономика сети
+## Solution 8: Rating — Network Economics
 
-### Формула
+### Formula
 ```
-1 rating point = 1 токен обученный для сети на твоём устройстве
+1 rating point = 1 token trained for the network on your device
 ```
 
 Rating — permanent, never decreases. It's a total counter of how much you've contributed to the network.
 
-### Правила
+### Rules
 - **Everything is free for participants.** If you have the app, you get AI — no spending, no balances.
 - **Rating = priority.** Higher rating → higher priority in the queue.
 - **Priority formula:** `priority_share = √(your_rating) / Σ√(all_ratings)` — square root ensures diminishing returns for whales.
 - **API without device = last in queue.** You can use the API without contributing compute, but you wait behind everyone who does.
 - **Developers build free** on the GPU Network — the API is open, priority is the only differentiator.
 
-### How rating grows
+### How Rating Grows
 ```
 Signals mode (default):       1× rating per token trained
 Full data mode (opt-in):      2× rating per token trained
 ```
 
-### Rating display
+### Rating Display
 Rating shown as a number with ⚡ in settings. People compare, compete, show off. Transferable to family/friends.
 
 ### Battery / Internet Rules
@@ -334,100 +334,100 @@ Key principles:
 
 ---
 
-## Итого: что берём в V2
+## Summary: What We Adopt for V2
 
-### Простым языком
+### In Plain Terms
 
-| # | Решение | Что даёт |
-|---|---------|----------|
-| 1 | **Token-Dependent Merge** | Каждое слово получает свою смесь экспертов, а не 25%/25%/25%/25% |
-| 2 | **Cross-Track Attention** | Эксперты обмениваются записками перед ответом, не работают вслепую |
-| 3 | **Diversity Loss** | Треки учат разное, а не дублируют друг друга. 4 телефона = 4× польза |
-| 4 | **DropTrack** | Модель работает с любым количеством треков (1-32). Отвалился телефон — ОК |
-| 5 | **Переменные группы (0-4)** | Простая задача = 0 раундов, сложная = 4. Приложение выбирает |
-| 6 | **Streaming** | Сеть и процессор работают параллельно. -30-40% ожидания при 2+ группах |
-| 7 | **Redundancy x2** | Каждый трек на 2 телефонах (top-1 + top-2 эксперт). Один завис — бэкап уже считает |
+| # | Solution | What it provides |
+|---|----------|-----------------|
+| 1 | **Token-Dependent Merge** | Each word gets its own mix of experts, not 25%/25%/25%/25% |
+| 2 | **Cross-Track Attention** | Experts exchange notes before answering, not working blind |
+| 3 | **Diversity Loss** | Tracks learn different things, not duplicating each other. 4 phones = 4x benefit |
+| 4 | **DropTrack** | Model works with any number of tracks (1-32). Phone dropped out — OK |
+| 5 | **Variable Groups (0-4)** | Simple task = 0 rounds, complex = 4. Application chooses |
+| 6 | **Streaming** | Network and processor work in parallel. -30-40% waiting time with 2+ groups |
+| 7 | **Redundancy x2** | Each track on 2 phones (top-1 + top-2 expert). One is stuck — backup is already computing |
 | 8 | **Rating** | Everything free for participants. Rating = total tokens trained. Higher rating = higher priority in queue |
-| 9 | **Tiered Tracks** | Каждый участвует по силам: 1 трек (150MB) или 32 (5GB) |
-| 10 | **Свои запросы = 0** | Клавиатура работает даже без интернета и поинтов |
-| 11 | **Signal-based learning** | Девайсы шлют сигналы (predicted vs typed). Сервер дообучает модель каждую неделю. Маховик: больше юзеров → больше данных → модель умнее |
-| 12 | **Opt-in full data sharing** | Юзер выбирает: "Приватный" (signals = 1× rating), "Помогаю учить" (full data = 2× rating). Больше данных = лучше обучение = больше рейтинг. Честно объясняем что видим |
+| 9 | **Tiered Tracks** | Everyone contributes according to their capacity: 1 track (150MB) or 32 (5GB) |
+| 10 | **Own requests = 0** | Keyboard works even without internet and points |
+| 11 | **Signal-based learning** | Devices send signals (predicted vs typed). Server fine-tunes the model weekly. Flywheel: more users → more data → smarter model |
+| 12 | **Opt-in full data sharing** | User chooses: "Private" (signals = 1x rating), "Help train" (full data = 2x rating). More data = better training = more rating. We honestly explain what we see |
 
-### Потом (V3+)
+### Later (V3+)
 
-| # | Решение | Что даёт |
-|---|---------|----------|
-| 13 | **Confidence Head** | Экономит раунды: "уже уверена после 2, 3й не нужен" |
-| 14 | **Federated Learning** | Градиенты на устройстве, текст вообще не покидает телефон |
-| 15 | **Добавление треков** | Новый специалист без переобучения всей модели |
+| # | Solution | What it provides |
+|---|----------|-----------------|
+| 13 | **Confidence Head** | Saves rounds: "already confident after 2, 3rd not needed" |
+| 14 | **Federated Learning** | Gradients on device, text never leaves the phone |
+| 15 | **Adding Tracks** | New specialist without retraining the entire model |
 | 16 | **Expertise marketplace** | Professionals train model on domain data → rating grows → higher priority. Contributing, not "earning" |
-| 17 | **Speculative Decoding** | Draft-модель на телефоне, сеть проверяет. ×3-5 скорость |
-| 18 | **P2P WiFi** | Телефоны в одной комнате общаются напрямую, без интернета |
+| 17 | **Speculative Decoding** | Draft model on phone, network verifies. 3-5x speed |
+| 18 | **P2P WiFi** | Phones in the same room communicate directly, without internet |
 
 ---
 
-## План обучения
+## Training Plan
 
-### Фаза 0: Подготовка (делаем 1 раз, переиспользуем всегда)
+### Phase 0: Preparation (Done Once, Reused Always)
 
-**День 1: Токенизатор + данные**
-
-```
-1. SentencePiece токенизатор (~2-3 часа)
-   - Обучаем на RU + EN (70/30 в выборке для токенизатора)
-   - 32K vocab, оптимальный для обоих языков
-   - Делаем ОДИН раз, используем для ablation → solid → full → production
-
-2. Токенизация данных (~1-2 часа)
-   - Quick ablation: 100M токенов, 100% русский (CulturaX/C4 ru)
-   - Ретокенизируем SentencePiece → бинарный формат
-   - Потом наращиваем: 100M → 500M → 5B (дописываем, не переделываем)
-
-3. Warmup sweep (~1 час)
-   - 3 прогона по 1K шагов с разным LR warmup (500, 1000, 2000)
-   - Выбираем лучший по скорости снижения loss
-```
-
-**День 1-2: Код архитектуры**
+**Day 1: Tokenizer + Data**
 
 ```
-Реализовать в models/:
-├── Batched expert dispatch (ffn.py) — 5-10× ускорение MoE routing
+1. SentencePiece tokenizer (~2-3 hours)
+   - Train on RU + EN (70/30 in tokenizer sample)
+   - 32K vocab, optimal for both languages
+   - Done ONCE, used for ablation → solid → full → production
+
+2. Data tokenization (~1-2 hours)
+   - Quick ablation: 100M tokens, 100% Russian (CulturaX/C4 ru)
+   - Retokenize with SentencePiece → binary format
+   - Then scale up: 100M → 500M → 5B (append, don't redo)
+
+3. Warmup sweep (~1 hour)
+   - 3 runs of 1K steps with different LR warmup (500, 1000, 2000)
+   - Pick the best by loss reduction speed
+```
+
+**Day 1-2: Architecture Code**
+
+```
+Implement in models/:
+├── Batched expert dispatch (ffn.py) — 5-10x MoE routing speedup
 ├── Token-Dependent Merge (layers.py) — Linear(d_model, num_tracks) + softmax
-├── Cross-Track Attention (layers.py) — MHA между выходами треков
-├── Diversity Loss (layers.py) — cosine penalty на ВЫХОДАХ треков
-├── DropTrack (layers.py) — random drop треков при обучении
-├── Expert utilization logging (ffn.py) — bincount + log каждые N шагов
-├── Track weight logging (layers.py) — TDM weight distribution + cosine между треками
-└── Переменные группы (model.py) — num_groups как параметр, exit после любой группы
+├── Cross-Track Attention (layers.py) — MHA between track outputs
+├── Diversity Loss (layers.py) — cosine penalty on track OUTPUTS
+├── DropTrack (layers.py) — random drop of tracks during training
+├── Expert utilization logging (ffn.py) — bincount + log every N steps
+├── Track weight logging (layers.py) — TDM weight distribution + cosine between tracks
+└── Variable groups (model.py) — num_groups as parameter, exit after any group
 ```
 
-**Всё переиспользуется:** токенизатор, данные, код — делаем раз, используем на всех этапах.
+**Everything is reused:** tokenizer, data, code — done once, used across all stages.
 
 ---
 
-### Фаза 1: Quick Ablation (100M токенов, ~1 день обучения)
+### Phase 1: Quick Ablation (100M tokens, ~1 day of training)
 
-**Цель:** проверить архитектурные решения. Что работает, что нет.
+**Goal:** Verify architectural decisions. What works, what doesn't.
 
-**Данные:** 100M токенов, 100% русский.
-**Почему только русский:** 100M мало для двух языков. Цель — проверить архитектуру, не язык.
+**Data:** 100M tokens, 100% Russian.
+**Why Russian only:** 100M is too little for two languages. Goal is to test architecture, not language.
 
-**Железо:** 2× NVIDIA L20 48GB. 2 модели параллельно (по 1 на GPU).
+**Hardware:** 2x NVIDIA L20 48GB. 2 models in parallel (1 per GPU).
 
-**Модели:**
+**Models:**
 
-| ID | Группы | Треки | Merge | CTA | Diversity | DropTrack | Что проверяем |
-|----|:------:|:-----:|-------|:---:|:---------:|:---------:|---------------|
-| A | 1 | 4 | Scalar (baseline) | - | - | - | Baseline: 1 группа × 4 трека работает? |
-| B | 1 | 4 | Token-Dependent | - | - | - | TDM помогает? |
-| C | 1 | 4 | TDM | + | - | - | CTA поверх TDM помогает? |
-| D | 1 | 4 | TDM | + | + | + | Полный пакет: треки специализируются? |
-| E | 2 | 4 | TDM | + | + | + | Второй раунд стоит того? |
-| F | 1 | 8 | TDM | + | + | + | Больше треков = лучше? |
-| G | 1 | 2 | TDM | + | + | + | Деградация при 2 треках? (тест DropTrack) |
+| ID | Groups | Tracks | Merge | CTA | Diversity | DropTrack | What we test |
+|----|:------:|:-----:|-------|:---:|:---------:|:---------:|--------------|
+| A | 1 | 4 | Scalar (baseline) | - | - | - | Baseline: does 1 group x 4 tracks work? |
+| B | 1 | 4 | Token-Dependent | - | - | - | Does TDM help? |
+| C | 1 | 4 | TDM | + | - | - | Does CTA on top of TDM help? |
+| D | 1 | 4 | TDM | + | + | + | Full package: do tracks specialize? |
+| E | 2 | 4 | TDM | + | + | + | Is the second round worth it? |
+| F | 1 | 8 | TDM | + | + | + | More tracks = better? |
+| G | 1 | 2 | TDM | + | + | + | Degradation with 2 tracks? (DropTrack test) |
 
-**Параметры обучения:**
+**Training parameters:**
 
 ```
 batch_size = 8
@@ -437,81 +437,81 @@ tokens_per_step = 32,768
 optimizer = AdamW (β1=0.9, β2=0.95, wd=0.1)
 precision = bfloat16
 patience = 5-7
-LR = из warmup sweep
+LR = from warmup sweep
 aux_loss_weight = 0.01
-diversity_loss_weight = 0.01-0.1 (тюним на модели D)
-drop_track_rate = 0.25 (в среднем 1 из 4 треков выключен)
+diversity_loss_weight = 0.01-0.1 (tuned on model D)
+drop_track_rate = 0.25 (on average 1 out of 4 tracks disabled)
 ```
 
-**Расчёт времени:**
+**Time calculation:**
 
 ```
 steps_per_epoch = 100M / 32,768 = 3,052
-epochs ≈ 5 (patience=5, оценка)
+epochs ≈ 5 (patience=5, estimate)
 total_steps = 15,260
-t_step ≈ 1.40с (с batched dispatch + TDM + CTA)
+t_step ≈ 1.40s (with batched dispatch + TDM + CTA)
 
-T_per_model = 15,260 × 1.40 = 21,364с ≈ 5.9 часов
+T_per_model = 15,260 × 1.40 = 21,364s ≈ 5.9 hours
 
-7 моделей / 2 параллельно = 4 раунда × 5.9ч = 23.6ч ≈ 1 день
+7 models / 2 in parallel = 4 rounds × 5.9h = 23.6h ≈ 1 day
 ```
 
-**Метрики (автоматические после каждого эксперимента):**
+**Metrics (automatic after each experiment):**
 
 ```
-Количественные:
-├── Val PPL (качество генерации)
-├── Expert utilization (токенов на эксперта, dead experts)
-├── Track cosine similarity (дублируют ли треки друг друга)
-├── TDM weight entropy (использует ли merge разные веса для разных токенов)
-└── Throughput (tokens/sec — скорость обучения)
+Quantitative:
+├── Val PPL (generation quality)
+├── Expert utilization (tokens per expert, dead experts)
+├── Track cosine similarity (are tracks duplicating each other)
+├── TDM weight entropy (does merge use different weights for different tokens)
+└── Throughput (tokens/sec — training speed)
 
-Качественные (человеческим глазом):
-├── Генерация по фиксированным промптам (6 штук, RU + EN + Code)
-├── Сравнительная таблица: все модели рядом, один промпт
-└── Track weights heatmap: какой трек активен на каком токене
+Qualitative (human eye):
+├── Generation from fixed prompts (6 total, RU + EN + Code)
+├── Comparison table: all models side by side, one prompt
+└── Track weights heatmap: which track is active on which token
 ```
 
-**Тестовые промпты (фиксированные для всех моделей):**
+**Test prompts (fixed across all models):**
 
 ```
-1. "Привет, как"                              — русский разговорный
-2. "Уважаемый коллега, хочу сообщить что"     — русский формальный
-3. "Столица Франции —"                        — знания / факты
-4. "def fibonacci("                           — код
-5. "Напиши функцию которая сортирует"         — смешанный (RU + код)
-6. "The weather today is"                     — английский (тест токенизатора)
+1. "Привет, как"                              — Russian conversational
+2. "Уважаемый коллега, хочу сообщить что"     — Russian formal
+3. "Столица Франции —"                        — knowledge / facts
+4. "def fibonacci("                           — code
+5. "Напиши функцию которая сортирует"         — mixed (RU + code)
+6. "The weather today is"                     — English (tokenizer test)
 ```
 
 ---
 
-### Фаза 2: Solid Ablation (500M токенов, ~3 дня) — если Quick покажет результат
+### Phase 2: Solid Ablation (500M tokens, ~3 days) — if Quick shows results
 
-**Данные:** 500M токенов, 90% RU + 10% EN.
-**Модели:** Топ-2 из Quick ablation + варианты.
-**Цель:** подтвердить результаты на большем объёме, проверить что английский не ломает.
-
----
-
-### Фаза 3: Full Training V2 (1-5B токенов, 1-3 недели)
-
-**Данные:** 1-5B токенов, 70% RU + 30% EN.
-**Модель:** Лучшая конфигурация из Solid ablation.
-**Цель:** Production quality для клавиатуры и API.
+**Data:** 500M tokens, 90% RU + 10% EN.
+**Models:** Top-2 from Quick ablation + variants.
+**Goal:** Confirm results on larger volume, verify that English doesn't break things.
 
 ---
 
-### Сводка по времени
+### Phase 3: Full Training V2 (1-5B tokens, 1-3 weeks)
 
-| Этап | Данные | Языки | Время обучения | Всего с подготовкой |
-|------|:------:|:-----:|:--------------:|:-------------------:|
-| Подготовка | — | — | — | 1-2 дня (код + токенизатор) |
-| Quick ablation | 100M | RU | ~1 день | 3-4 дня от старта |
-| Solid ablation | 500M | 90% RU + 10% EN | ~3 дня | +4 дня |
-| Full training V2 | 1-5B | 70% RU + 30% EN | 1-3 недели | +1-3 недели |
+**Data:** 1-5B tokens, 70% RU + 30% EN.
+**Model:** Best configuration from Solid ablation.
+**Goal:** Production quality for keyboard and API.
 
-**Подготовка делается 1 раз.** Токенизатор, код, данные — переиспользуются на всех этапах.
-Данные наращиваются: 100M → 500M → 5B (дописываем, не переделываем).
+---
+
+### Time Summary
+
+| Stage | Data | Languages | Training time | Total with preparation |
+|-------|:----:|:---------:|:-------------:|:----------------------:|
+| Preparation | — | — | — | 1-2 days (code + tokenizer) |
+| Quick ablation | 100M | RU | ~1 day | 3-4 days from start |
+| Solid ablation | 500M | 90% RU + 10% EN | ~3 days | +4 days |
+| Full training V2 | 1-5B | 70% RU + 30% EN | 1-3 weeks | +1-3 weeks |
+
+**Preparation is done once.** Tokenizer, code, data — reused across all stages.
+Data scales up: 100M → 500M → 5B (append, don't redo).
 
 ---
 
@@ -519,7 +519,7 @@ T_per_model = 15,260 × 1.40 = 21,364с ≈ 5.9 часов
 
 | Model | Architecture | Final Loss | Notes |
 |-------|-------------|:----------:|-------|
-| **F_8tracks** | 1 group × 8 tracks + TDM + CTA + Diversity + DropTrack | **8.09** | 🏆 BEST. More tracks = better. |
+| **F_8tracks** | 1 group × 8 tracks + TDM + CTA + Diversity + DropTrack | **8.09** | BEST. More tracks = better. |
 | C_cta | 1 group × 4 tracks + TDM + CTA | 8.12 | CTA helps slightly |
 | B_tdm | 1 group × 4 tracks + TDM | 8.12 | TDM helps vs baseline |
 | A_baseline | 1 group × 4 tracks, scalar merge | 8.14 | Baseline |
@@ -594,7 +594,7 @@ Softmax distribution fundamentally changes: 8 tracks = 12.5% each, 64 tracks = 1
 | Total params | 2.5B | 24-96B |
 | Active params | 700M | 6-25B |
 | Comparable to | GPT-2 | LLaMA-7B to LLaMA-70B |
-| Training | 2× L20 (have) | 8-16× A100 80GB (rent ~$5-10K) |
+| Training | 2x L20 (have) | 8-16x A100 80GB (rent ~$5-10K) |
 | Phone storage | 160MB per track | 500MB per track |
 | New tracks via | Training from scratch | BTX (copy + fine-tune) |
 | Merge scaling | Single CTA(8) | BTX or Hierarchical |
@@ -649,7 +649,7 @@ Latency: ~285ms (3 round-trips between coordinators)
 
 ---
 
-## Path to GPT-5: Time × Users, Not Money
+## Path to GPT-5: Time x Users, Not Money
 
 ### Why We Don't Need $300M
 
@@ -751,20 +751,20 @@ Inference = expensive servers        Inference = participant phones (free)
 Controlled by 1 company             Controlled by no one
 ```
 
-**Our advantage is not money. Our advantage is time × users.**
+**Our advantage is not money. Our advantage is time x users.**
 
 ---
 
-## Ключевые статьи
+## Key Papers
 
-| Статья | Год | Что доказывает | Релевантность |
-|--------|-----|---------------|---------------|
-| Branchformer | ICML 2022 | Token-dependent merge работает | TDM |
+| Paper | Year | What it proves | Relevance |
+|-------|------|---------------|-----------|
+| Branchformer | ICML 2022 | Token-dependent merge works | TDM |
 | ParaFormer | 2025 | Inter-branch collaboration > depth | CTA |
-| Kraken | NeurIPS 2024 | Parallel branches для multi-device | Наш use case |
-| BTM / BTX | Meta 2022/2024 | Parallel training + merge = 2.5× дешевле | Масштабирование |
+| Kraken | NeurIPS 2024 | Parallel branches for multi-device | Our use case |
+| BTM / BTX | Meta 2022/2024 | Parallel training + merge = 2.5x cheaper | Scaling |
 | DEMix | NAACL 2022 | Domain-specific experts, add/remove post-training | Tiered tracks |
 | LayerDrop | ICLR 2020 | Drop layers → extract sub-networks | DropTrack |
-| Geometric Reg. | 2025 | Diversity на весах НЕ работает, на активациях ДА | Diversity loss |
+| Geometric Reg. | 2025 | Diversity on weights DOES NOT work, on activations YES | Diversity loss |
 | Mixture-of-Depths | ICML 2024 | Skip computation per-token | Adaptive depth |
 | Soft MoE | ICLR 2024 | Soft routing > hard routing | Merge design |
