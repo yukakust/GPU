@@ -76,7 +76,7 @@ Router:
 ```
 
 Token-dependent merge автоматически учтёт если пришёл top-2 вместо top-1 (чуть меньший вес).
-Стоимость: x2 compute. Выигрыш: resilience + скорость.
+Cost: x2 compute. Benefit: resilience + speed.
 
 ### Обоснование (статьи)
 - **Branch-Train-Merge** (Meta, 2022): 22.4B модель без sequential dependency = 2.5× дешевле обычной при том же качестве
@@ -183,30 +183,18 @@ if self.training:
 | 3 | Мощный телефон | 4 | ~200MB | ~600MB | Полная модель, сложные задачи |
 | 4 | Комп / сервер | 8-32 | 1-4GB | 1.5-5GB | Максимальный интеллект |
 
-### Экономика поинтов
+### Rating growth by device tier
 
-| Устройство | Compute/token | Earn/token | Spend rate |
-|------------|:------------:|:----------:|:----------:|
-| Tier 1 (1 трек) | ~30ms | 1 pt | Может юзать 1-2 трека |
-| Tier 2 (2 трека) | ~60ms | 3 pt | До 4 треков |
-| Tier 3 (4 трека) | ~120ms | 8 pt | До 8 треков |
-| Tier 4 (8+ треков) | varies | 20+ pt | Без ограничений |
+More tracks = more training compute = higher rating = higher priority.
 
-### Мультипликатор: логарифмический (защита от "китов")
+| Устройство | Треков | Training compute | Rating growth |
+|------------|:------:|:----------------:|:-------------:|
+| Tier 1 (слабый телефон) | 1 | ~30ms/token | Slow but steady |
+| Tier 2 (средний) | 2 | ~60ms/token | 2× faster rating growth |
+| Tier 3 (мощный) | 4 | ~120ms/token | 4× faster rating growth |
+| Tier 4 (комп/сервер) | 8-32 | varies | Fastest rating growth |
 
-```
-Miles = tokens × layers × multiplier
-multiplier = 1 + log2(tracks)
-
-1 трек:   1 + log2(1)  = 1.0×
-2 трека:  1 + log2(2)  = 2.0×
-4 трека:  1 + log2(4)  = 3.0×
-8 треков: 1 + log2(8)  = 4.0×
-32 трека: 1 + log2(32) = 6.0×   (потолок ~6×, не 32×)
-```
-
-Мощное устройство получает больше (заслуженно), но не в 32 раза больше — в 6.
-Два слабых телефона (1 трек × 2) = 2.0 miles. Один средний (2 трека) = 2.0 miles. Справедливо.
+No multipliers, no bonuses. 1 token trained = 1 rating point (signals mode) or 2 rating points (full data mode). More tracks simply means more tokens processed per unit of time.
 
 ### Как работает token-dependent merge с неполным набором треков
 
@@ -251,11 +239,11 @@ Token-dependent merge масштабируется: Linear(d_model, N) — до�
 ### Тиры продуктов (явный выбор, не автоматика)
 
 ```
-Keyboard:    0-1 группа   бесплатно (юзер отдаёт compute)
-Chat/Babel:  1-2 группы   бесплатно (юзер отдаёт compute + translation data)
-API Light:   2 группы     дешёвые поинты
-API Full:    3 группы     стандартные поинты
-API Deep:    4 группы     премиум поинты
+Keyboard:    0-1 группа   free (participant contributes compute)
+Chat/Babel:  1-2 группы   free (participant contributes compute + translation data)
+API Light:   2 группы     free, priority by rating
+API Full:    3 группы     free, priority by rating
+API Deep:    4 группы     free, priority by rating (API without device = last in queue)
 ```
 
 Приложение/юзер выбирает сколько раундов. Никакой entropy-магии.
@@ -301,45 +289,48 @@ Streaming:  [compute L1-L3] → [send partial] → [compute L4-L6] → [send res
 
 ---
 
-## Решение 8: Compute Miles — экономика сети
+## Решение 8: Rating — экономика сети
 
 ### Формула
 ```
-1 Compute Mile = 1 токен × 1 слой обработанный на твоём устройстве
+1 rating point = 1 токен обученный для сети на твоём устройстве
 ```
+
+Rating — permanent, never decreases. It's a total counter of how much you've contributed to the network.
 
 ### Правила
-- **Свои запросы = 0 miles.** Считаешь на своём железе для себя — бесплатно.
-- **Чужие запросы = earn miles.** Через твои слои прошли чужие токены — получи miles.
-- **Потратить miles** = отправить свой запрос на чужие устройства.
+- **Everything is free for participants.** If you have the app, you get AI — no spending, no balances.
+- **Rating = priority.** Higher rating → higher priority in the queue.
+- **Priority formula:** `priority_share = √(your_rating) / Σ√(all_ratings)` — square root ensures diminishing returns for whales.
+- **API without device = last in queue.** You can use the API without contributing compute, but you wait behind everyone who does.
+- **Developers build free** on the GPU Network — the API is open, priority is the only differentiator.
 
-### Расценки (расход)
+### How rating grows
 ```
-Keyboard (свой):     0 miles (локально)
-Chat (1 группа):     tokens × tracks × layers = 50 × 4 × 6 = 1,200 miles
-API Light (2 гр.):   100 × 4 × 6 × 2 = 4,800 miles
-API Full (3 гр.):    100 × 4 × 6 × 3 = 7,200 miles
-API Deep (4 гр.):    100 × 4 × 6 × 4 = 9,600 miles
-```
-
-### Заработок (примеры)
-```
-Слабый телефон (1 трек, 6 слоёв):   обработал 50 чужих токенов = 300 miles
-Средний (2 трека):                   50 токенов = 600 miles
-Мощный (4 трека):                    50 токенов = 1,200 miles
-Комп (8 треков):                     50 токенов = 2,400 miles
+Signals mode (default):       1× rating per token trained
+Full data mode (opt-in):      2× rating per token trained
 ```
 
-### Что делать с miles
-- Тратить на умные запросы (API Full/Deep)
-- Дарить другим юзерам
-- Продавать (V4+, marketplace)
-- Накапливать = "репутация" в сети
+### Rating display
+Rating shown as a number with ⚡ in settings. People compare, compete, show off. Transferable to family/friends.
 
-### Самоокупаемость
-Если отдаёшь ≥ столько же compute сколько потребляешь → вечно бесплатный AI.
-Мощное устройство зарабатывает surplus → может позволить API Deep запросы.
-Слабое устройство зарабатывает мало → хватает на Chat, для API нужно больше online-времени.
+### Battery / Internet Rules
+
+Like sleep for humans — work during the day, brain processes at night. Phone charges → trains on everything from today → wakes up smarter.
+
+```
+Charging + WiFi:       training (day's data) + inference for network + data sync
+Charging + cellular:   training (day's data) + inference for network (KB only)
+Battery + WiFi:        inference for network + sync pending rating
+Battery + cellular:    inference for network only (KB per request)
+Offline:               own AI only, data accumulates, pending_rating queued
+```
+
+Key principles:
+- **Training = only while charging.** Plugged in at night → phone learns from everything typed today → smarter by morning.
+- **Inference = always** (except offline). Serving network requests = kilobytes of text, negligible traffic/battery.
+- **No user settings.** It just works. User never thinks about it.
+- **Pending rating:** training done while charging queues up. Syncs to coordinator when WiFi available. Nothing lost.
 
 ---
 
@@ -356,11 +347,11 @@ API Deep (4 гр.):    100 × 4 × 6 × 4 = 9,600 miles
 | 5 | **Переменные группы (0-4)** | Простая задача = 0 раундов, сложная = 4. Приложение выбирает |
 | 6 | **Streaming** | Сеть и процессор работают параллельно. -30-40% ожидания при 2+ группах |
 | 7 | **Redundancy x2** | Каждый трек на 2 телефонах (top-1 + top-2 эксперт). Один завис — бэкап уже считает |
-| 8 | **Compute Miles** | Считаешь для других = зарабатываешь. Свои запросы бесплатно. Логарифмический мультипликатор |
+| 8 | **Rating** | Everything free for participants. Rating = total tokens trained. Higher rating = higher priority in queue |
 | 9 | **Tiered Tracks** | Каждый участвует по силам: 1 трек (150MB) или 32 (5GB) |
 | 10 | **Свои запросы = 0** | Клавиатура работает даже без интернета и поинтов |
 | 11 | **Signal-based learning** | Девайсы шлют сигналы (predicted vs typed). Сервер дообучает модель каждую неделю. Маховик: больше юзеров → больше данных → модель умнее |
-| 12 | **Opt-in full data sharing** | Юзер выбирает: "Приватный" (только signals), "Помогаю учить" (+контекст, +50% miles), "Максимум" (+градиенты, +100% miles, V3+). Больше данных = лучше обучение. Честно объясняем что видим |
+| 12 | **Opt-in full data sharing** | Юзер выбирает: "Приватный" (signals = 1× rating), "Помогаю учить" (full data = 2× rating). Больше данных = лучше обучение = больше рейтинг. Честно объясняем что видим |
 
 ### Потом (V3+)
 
@@ -369,7 +360,7 @@ API Deep (4 гр.):    100 × 4 × 6 × 4 = 9,600 miles
 | 13 | **Confidence Head** | Экономит раунды: "уже уверена после 2, 3й не нужен" |
 | 14 | **Federated Learning** | Градиенты на устройстве, текст вообще не покидает телефон |
 | 15 | **Добавление треков** | Новый специалист без переобучения всей модели |
-| 16 | **Miles marketplace** | Продажа/покупка compute miles |
+| 16 | **Expertise marketplace** | Professionals train model on domain data → rating grows → higher priority. Contributing, not "earning" |
 | 17 | **Speculative Decoding** | Draft-модель на телефоне, сеть проверяет. ×3-5 скорость |
 | 18 | **P2P WiFi** | Телефоны в одной комнате общаются напрямую, без интернета |
 
@@ -663,7 +654,7 @@ Latency: ~285ms (3 round-trips between coordinators)
 ### Why We Don't Need $300M
 
 OpenAI spent $300M on GPT-5 because they need to buy everything: data, compute, annotations.
-We get all three for free from users.
+The GPU Network gets all three for free from participants. We are a participant in the network, not a central bank — we contribute compute and benefit from the collective just like everyone else.
 
 ### Data: Users ARE the Dataset
 
@@ -720,43 +711,43 @@ Google already does this with Gboard keyboard. Proven at scale.
 ### Revised Roadmap
 
 ```
-Year 0:  Seed model on GPU ($5-10K)
+Year 0:  Seed model on GPU (our contribution as a network participant)
          V2: 8 tracks, GPT-2 level
          Launch to 150 users (TestFlight)
 
-Year 1:  V3 seed on GPU ($50-100K)
+Year 1:  V3 seed on GPU (network grows)
          64 tracks, LLaMA-13B level
          1M users → 36B tokens/year + 100M DPO pairs/day
          Federated fine-tuning begins
 
-Year 2:  Model continuously improved by user signals
+Year 2:  Model continuously improved by participant signals
          LLaMA-70B level (from data, not money)
          10M users → 365B tokens/year
          Professional track specialization emerging
 
-Year 3:  V4 seed on GPU ($500K or grant/investor)
+Year 3:  V4 seed on GPU (grant/investor/community fund)
          512 tracks, GPT-4 base level
-         + 2 years of federated learning from 10M users
+         + 2 years of federated learning from 10M participants
          + trillions of DPO pairs
          = GPT-4+ level
 
-Year 4:  100M users
-         3.6T new tokens/year from users
+Year 4:  100M participants
+         3.6T new tokens/year
          Federated learning = 100-1000 free GPUs 24/7
          Model improves EVERY DAY
-         GPT-5 level — not because we spent $300M,
-         but because 100M people train the model for free
+         GPT-5 level — not because anyone spent $300M,
+         but because 100M people train the model together
 ```
 
 ### Our Advantage Over OpenAI
 
 ```
-OpenAI:                              Us:
-$300M upfront → GPT-5               $500K upfront → seed model
+OpenAI:                              GPU Network:
+$300M upfront → GPT-5               Seed model → participants grow it
 Model frozen between releases        Model improves EVERY DAY
 Data = scraped internet (stale)      Data = live human speech (fresh)
 RLHF = paid annotators (expensive)  RLHF = user keystrokes (free, massive)
-Inference = expensive servers        Inference = user phones (free)
+Inference = expensive servers        Inference = participant phones (free)
 Controlled by 1 company             Controlled by no one
 ```
 

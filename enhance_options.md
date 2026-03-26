@@ -226,11 +226,11 @@ User is deleting rapidly       → suppress (they're fixing, not writing)
 
 ---
 
-## 12. Sleep Training — Phone Learns While You Sleep
+## 12. Sleep Training (2× rating for full data mode) — Phone Learns While You Sleep
 
 **STATUS: V3 — TRY IT**
 
-Phone on charger at night = 8 hours of free compute. Accumulate a week of typing data, fine-tune local LoRA adapter on Sunday night.
+Phone on charger at night = 8 hours of free compute. Accumulate a week of typing data, fine-tune local LoRA adapter on Sunday night. Full data mode earns 2× rating per token trained.
 
 **Problem at V2:** One day of typing (~100-500 sentences) is too little for fine-tuning. Need weekly accumulation.
 
@@ -314,10 +314,10 @@ Better model = better compressor (Shannon). Instead of perplexity, rank tracks b
 ```
 Track A: compresses to 2.3 bits/char
 Track B: compresses to 2.1 bits/char ← objectively better
-Track B gets more requests → more miles
+Track B contributes more to model quality → gets more requests → higher rating
 ```
 
-Objective quality metric. No human votes needed. Self-regulating market.
+Objective quality metric. No human votes needed. Better compression = more useful training = faster rating growth.
 
 **Priority:** HYPOTHESIS — interesting for reputation system in expertise marketplace
 
