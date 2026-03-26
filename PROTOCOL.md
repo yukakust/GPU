@@ -14,11 +14,11 @@ Device in the network → trains the model → rating grows.
 
 Want more powerful AI → rating decides.
 
-Rating = your passport. Works in any app built on GPU Network.
+Rating = your priority. Works in any app built on GPU Network.
 
 **Build with free AI.** If you're a developer — build anything: a chatbot, a translator, a code assistant, a medical app, a game with AI characters. You don't pay for AI. Not a cent. Not ever. Your users already have devices in the GPU Network. When they open your app, their rating gives them priority, their devices provide compute. You write the UI. The network does the thinking. No API keys. No billing. No rate limits. Just build.
 
-API without a device = last in line. We do NOT train on API data.
+API without a device = last in line. API data is trained with heavy filtering (perplexity check, quarantine, low weight). Poisoning hurts only the poisoner — see Anti-Abuse.
 
 Code is open. Rules change by vote.
 
@@ -34,7 +34,7 @@ Code is open. Rules change by vote.
 ║  Queue = √rating / Σ√everyone.                       ║
 ║                                                      ║
 ║  Rating = permanent contribution. Transferable.      ║
-║  Rating = your passport across all apps.             ║
+║  Rating = your priority across all apps.              ║
 ║                                                      ║
 ║  Developers: build anything with free AI.             ║
 ║  No API keys. No billing. No rate limits.            ║
@@ -42,7 +42,7 @@ Code is open. Rules change by vote.
 ║  The network does the thinking.                      ║
 ║                                                      ║
 ║  API without device = last in queue.                 ║
-║  We do NOT train on API data.                        ║
+║  API data trained with filtering. Poison = self-harm.║
 ║                                                      ║
 ║  Code is open. Rules change by vote.                 ║
 ║                                                      ║
@@ -61,7 +61,10 @@ All compute, all AI, all services are free. The model belongs to everyone. The n
 
 ### 2.1 Roles
 
-- **Coordinator**: Manages request routing, track assignment, training task distribution, and result merging. Open source. Anyone can run one. Devices choose which coordinator to trust.
+- **Coordinator**: Manages request routing, track assignment, training task distribution, and result merging. Open source.
+  - **V2 (current):** Our server acts as coordinator. Simple, reliable.
+  - **V3:** Any powerful device can be a coordinator. Multiple coordinators compete.
+  - **V4+:** Each device can coordinate its own requests. Fully decentralized.
 - **Track Node**: Any device running one or more model tracks. Computes inference and training tasks. Earns rating.
 - **Client**: Any application making inference requests. Developers build the app, but the USER's rating determines priority — not the developer's wallet. Building on GPU Network costs $0. Your users bring their own compute and rating. You bring the idea and the interface.
 
@@ -183,6 +186,8 @@ Square root ensures:
 - But not linearly (prevents whales from starving everyone)
 - Rating 10,000x higher = only ~100x more share
 
+**Requeue:** after your request is processed, you go back in the queue — behind users who were already waiting, but ahead of API requests. No rate limits needed. The queue IS the rate limit. Spam = wait longer each time.
+
 ### 5.4 Rating Properties
 
 - **Permanent**: rating never decays, never expires. Your contribution stands forever.
@@ -191,7 +196,7 @@ Square root ensures:
   - Old account → new account (device change)
   - Gift to anyone
   - Transfer reduces sender's rating, increases receiver's. Sum unchanged.
-- **Cross-app**: rating is tied to your account, not to any specific app. Open any app built on GPU Network — your rating follows you.
+- **Cross-app**: rating is tied to your account, not to any specific app. Open any app built on GPU Network — your priority follows you.
 - **Not a currency**: rating cannot be "spent." Using AI does not reduce your rating. Rating determines priority, not balance.
 
 ### 5.5 API Access (No Device)
@@ -199,9 +204,13 @@ Square root ensures:
 API clients without devices in the network:
 - Served at lowest priority (after all device-owning users)
 - Must provide full interaction data (anonymized) — this is the cost of entry
-- We do NOT train on API data (stated openly, verified by open-source code)
-- API data is processed and discarded, never stored
+- API data IS used for training, but with heavy filtering:
+  - Weight 0.1× compared to device user data (1.0×)
+  - 7-day quarantine for new API keys (data verified before training)
+  - Perplexity filter rejects incoherent / garbage input
+  - If quality metrics degrade after a batch → rollback + block source
 - Rating: 0 (no device = no contribution = no rating)
+- In V3+: poisoned data only affects the poisoner's own track (see 7.3)
 
 ### 5.6 Why The Network Cannot Be Replaced
 
@@ -257,11 +266,23 @@ Detects emulators and bot farms:
 
 Suspicious devices receive fewer training tasks → earn less rating → natural consequence.
 
-### 7.3 API Data Poisoning Prevention
+### 7.3 Data Poisoning Prevention
 
-We do NOT train on API data. This eliminates the entire attack surface of data poisoning through API. API data is processed for inference and immediately discarded.
+**V2 (centralized training):**
+- API data trained with 0.1× weight (device data = 1.0×)
+- 7-day quarantine for new API keys — data reviewed before entering training
+- Perplexity filter: incoherent text (gibberish, repeated phrases) auto-rejected
+- Quality monitoring: if loss/accuracy degrades after a batch → automatic rollback + source blocked
+- Poison at V2 scale = hard (filters catch obvious garbage, low weight limits subtle poison)
 
-Training data comes ONLY from opted-in device users whose devices are in the network and have rating history. Trusted sources only.
+**V3+ (federated, on-device training):**
+Each device trains its OWN track on its OWN data. If a spammer sends garbage:
+- Garbage trains the spammer's track → spammer's track becomes worse
+- Router detects low-quality track → sends less traffic → rating stops growing
+- Other users' tracks are untouched — they trained on clean data
+- **Poisoning = self-harm.** You can only poison your own track.
+
+This is the ultimate defense: isolation by architecture, not by policy.
 
 ### 7.4 Append-Only Rules
 
@@ -293,7 +314,12 @@ Old ratings are never invalidated. Old devices are never retroactively punished.
 
 ### 8.3 Coordinator Independence
 
-Open-source coordinator. Anyone can run one. Devices choose their coordinator. If the primary coordinator is unfair → community forks → devices switch. Ultimate check on power.
+Open-source coordinator code. Roadmap:
+- **V2:** We run the coordinator. Simple, fast, works.
+- **V3:** Anyone can run a coordinator. Devices choose which to trust.
+- **V4+:** Each device can coordinate its own requests. No central anything.
+
+If the primary coordinator is unfair → community forks → devices switch. Ultimate check on power.
 
 ## 9. Rating Transfer Protocol
 
@@ -334,7 +360,7 @@ Ed25519 keypair generated on first launch. Public key = device identifier. Priva
 - Device identifiers are pseudonymous (public keys)
 - Routing uses latency, not geography
 - No individual device location or activity exposed
-- API data processed and discarded, never stored
+- API data trained with filtering (see 7.3), never stored raw
 - Open source — anyone can verify
 
 ---
