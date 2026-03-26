@@ -34,8 +34,8 @@ OpenAI-compatible. Works with any tool that supports custom endpoints.
 A language model split into parallel **tracks**. Each track runs on someone's device. All devices compute simultaneously, results are merged. The more people join, the smarter it gets.
 
 ```
-Traditional AI:   Corporation → their servers → you pay → they decide
-GPU Network:      Everyone → everyone's devices → free → no one decides
+Traditional AI:   Corporation → their servers → you pay → they get smarter & richer
+GPU Network:      Everyone → everyone's devices → free → humanity gets smarter together
 ```
 
 ```
@@ -70,8 +70,9 @@ GPU Network:      Everyone → everyone's devices → free → no one decides
 | 64 | 20B | LLaMA-7B | 160MB |
 | 512 | 161B | Mixtral 8×7B | 160MB |
 | 4,096 | 1.3T | GPT-4 class | 160MB |
+| 100,000+ | 30T+ | Beyond GPT-5 | 160MB |
 
-The model scales by adding people, not by buying GPUs.
+The model scales by adding people, not by buying GPUs. More devices = more intelligence. More users = more training data. There is no ceiling — the network gets smarter every day, forever.
 
 ---
 
