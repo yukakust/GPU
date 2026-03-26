@@ -2,7 +2,7 @@
 
 ## Why This Exists
 
-AI is becoming the most powerful technology in human history. Right now it belongs to a handful of corporations and governments. They decide what the model can say, who gets access, and what it costs. This is a civilizational risk.
+AI is becoming the most powerful technology in human history. Right now it belongs to a handful of corporations and governments. We already know what happens next — the US government pressured Anthropic to help with domestic surveillance. Anthropic refused. But the next company might not. And the one after that will be built to say yes from the start. This is not hypothetical. This is happening.
 
 ## What We're Building
 
@@ -19,10 +19,10 @@ Split the AI model into parallel pieces. Each piece runs on someone's phone. Pho
 
 ```
 Traditional AI:
-  Corporation owns model → runs on their servers → you pay → they control
+  Corporation owns model → runs on their servers → you pay → they get richer
 
 Our AI:
-  Everyone owns a piece → runs on everyone's phones → free → no one controls
+  Everyone owns a piece → runs on everyone's phones → free → humanity gets richer
 ```
 
 ## Core Principles
@@ -31,9 +31,9 @@ Our AI:
 
 2. **Free as in freedom AND free as in beer.** Use your phone's idle compute → get AI for free. No subscription, no API key, no waitlist.
 
-3. **Compute Miles belong to users.** Earn miles by contributing compute. Spend them, trade them, give them away. We don't take a cut.
+3. **Rating belongs to users.** Your rating = how much you've trained the model. It's permanent, transferable, and determines your priority in the network. No currency, no tokens — just a record of your contribution to humanity's AI.
 
-4. **Privacy by default.** Signals-only mode: we see "model predicted X, user typed Y" — not what you actually typed. Full data sharing is opt-in with bonus miles.
+4. **Privacy by default.** Signals-only mode: we see "model predicted X, user typed Y" — not what you actually typed. Full data sharing is opt-in (2× rating bonus) — all names, passwords, phone numbers, emails, and sensitive data are automatically stripped before anything leaves your device.
 
 5. **Open.** Architecture, training code, model weights — all open. Anyone can verify, fork, or improve.
 
@@ -43,7 +43,7 @@ This is not a model that we train and ship. It's a system that **cannot stop imp
 
 **Gödel (formal self-modification):** The model rewrites its own weights every day. Users type → signals flow → federated learning adjusts the model → predictions improve → more accepted predictions → more signals → cycle never stops. No human in the loop.
 
-**Darwin (mutation + selection):** Tracks specialize randomly based on their user's data. A doctor's track learns medicine. A programmer's track learns code. Router sends more traffic to better tracks (more miles). Worse tracks get less traffic and fade. Natural selection — no one manages it.
+**Darwin (mutation + selection):** Tracks specialize randomly based on their user's data. A doctor's track learns medicine. A programmer's track learns code. Router sends more traffic to better tracks (higher rating). Worse tracks get less traffic and fade. Natural selection — no one manages it.
 
 **Cybernetic (self-correction through feedback loops):**
 - Milliseconds: prediction accepted/rejected → instant signal
