@@ -32,8 +32,8 @@ Not raw frequency — **anomaly score** relative to baseline:
 anomaly_score = current_frequency / avg_frequency_last_30_days
 
 Examples:
-  "привет":     10,000 / 10,000 = 1.0    → normal, ignore
-  "наводнение":  5,000 / 5      = 1,000  → 🔴 something is happening
+  "hello" (привет):     10,000 / 10,000 = 1.0    → normal, ignore
+  "flood" (наводнение):  5,000 / 5      = 1,000  → 🔴 something is happening
   "эвакуация":     800 / 2      = 400    → 🔴 confirms emergency
 ```
 
@@ -44,12 +44,12 @@ Threshold: anomaly_score > 10 → candidate signal.
 Single word anomaly = might be noise. Multiple RELATED words = real signal.
 
 ```
-Cluster: "наводнение" ×1000 + "эвакуация" ×400 + "вода" ×200 + "мост" ×150
+Cluster: "flood" ×1000 + "evacuation" ×400 + "water" ×200 + "bridge" ×150
   → Emergency cluster detected → 🔴 alert
 
 vs.
 
-Single: "футбол" ×50 (but no related emergency words)
+Single: "football" ×50 (but no related emergency words)
   → Probably a match → 🟡 trend, not emergency
 ```
 
@@ -63,8 +63,8 @@ Cluster detection uses pre-built word association graphs:
 
 ```
 🟢 Trend (anomaly 10-50×):     "AI" trending globally this week
-🟡 Notable (anomaly 50-200×):  "метро закрыто" trending in Moscow
-🔴 Alert (anomaly 200-1000×):  "землетрясение" spike in region
+🟡 Notable (anomaly 50-200×):  "subway closed" trending in Moscow
+🔴 Alert (anomaly 200-1000×):  "earthquake" spike in region
 🚨 Emergency (anomaly 1000×+): Multi-word emergency cluster detected
 ```
 
@@ -84,8 +84,8 @@ Not critical, just interesting.
 
 ```
 🌊 icon turns 🔴
-"🔴 наводнение +5000% in your region"
-"🔴 эвакуация trending"
+"🔴 flood +5000% in your region"
+"🔴 evacuation trending"
 
 User taps → sees: thousands of people nearby are typing about flooding
 Knows what's happening BEFORE official news
@@ -199,23 +199,23 @@ Privacy by design, not by policy.
 ### Natural Disasters (seconds, not hours)
 
 ```
-Earthquake:  "трясёт" ×10000 spike → alert in 30 seconds
+Earthquake:  "shaking" ×10000 spike → alert in 30 seconds
              Official seismograph data: 2-5 minutes
              News coverage: 15-30 minutes
 
-Flood:       "вода поднимается" cluster → alert in 5 minutes
-Wildfire:    "дым" + "горит" + "пожар" cluster → early warning
-Tsunami:     "волна" + "берег" + "уходим" → fastest possible warning
+Flood:       "water is rising" cluster → alert in 5 minutes
+Wildfire:    "smoke" + "burning" + "fire" cluster → early warning
+Tsunami:     "wave" + "shore" + "run" → fastest possible warning
 ```
 
 ### Public Health (weeks before official data)
 
 ```
-Flu epidemic:  "температура" + "кашель" + "больничный" rising
+Flu epidemic:  "fever" + "cough" + "sick leave" rising
                Detected 1-2 weeks before official statistics
                (Like Google Flu Trends, but from actual human communication)
 
-COVID-like:    "новый вирус" + "карантин" + "маска" emerging cluster
+COVID-like:    "new virus" + "quarantine" + "mask" emerging cluster
                Early warning before WHO declares anything
 ```
 
@@ -224,7 +224,7 @@ COVID-like:    "новый вирус" + "карантин" + "маска" emerg
 ```
 Country with media blackout:
   Official news: "Everything is fine"
-  Swarm data: "протест" ×5000, "полиция" ×3000, "слезоточивый газ" ×800
+  Swarm data: "protest" ×5000, "police" ×3000, "tear gas" ×800
 
   People see: something is REALLY happening, regardless of what TV says
   No one can be arrested for "participating" — they were just typing
@@ -233,10 +233,10 @@ Country with media blackout:
 ### Urban Utility
 
 ```
-"пробка" + "МКАД" = traffic accident
-"отключили" + "воду" = utility outage
-"задержка" + "рейс" + "Шереметьево" = airport delays
-"очередь" + "МФЦ" = long wait at government office
+"traffic jam" + "highway" = traffic accident
+"water cut off" + "utility" = utility outage
+"delay" + "flight" + "airport" = airport delays
+"queue" + "government office" = long wait at government office
 ```
 
 ---
