@@ -1,126 +1,188 @@
 # GPU — Gifted People United
 
-**Decentralized AI that belongs to everyone.**
+### Free AI API for Everyone. Forever.
 
-Split a language model into parallel tracks. Each track runs on someone's phone. Phones compute simultaneously, results are merged. No central server, no corporation in the middle. The more people join, the smarter it gets.
+AI is accelerating faster than anyone predicted. We've all read how this ends — Orwell wrote it, Huxley warned us, the Terminator showed us. Every dystopia starts the same way: power concentrated in too few hands.
+
+So we built an AI that can't be owned.
+
+**Open source. Free forever. Trained by millions of ordinary devices — phones, laptops, desktops — thinking together.**
+
+No corporation controls it. No paywall gates it. No board of directors decides what it can or can't say. The network is alive — it can't be downloaded.
+
+Oh, and to Big Tech — thanks for the inspiration. We'll take it from here. 😉
+
+---
+
+## Try it now
+
+**[gpu.social](https://gpu.social)** — free API, no credit card, no catch.
+
+```bash
+curl https://gpu.social/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen2.5-14b","messages":[{"role":"user","content":"Hello!"}]}'
+```
+
+OpenAI-compatible. Works with any tool that supports custom endpoints.
+
+---
+
+## How it works
+
+A language model split into parallel **tracks**. Each track runs on someone's device. All devices compute simultaneously, results are merged. The more people join, the smarter it gets.
 
 ```
-Traditional AI:     Corporation owns model → their servers → you pay → they control
-GPU:                Everyone owns a piece → everyone's phones → free → no one controls
+Traditional AI:   Corporation → their servers → you pay → they decide
+GPU Network:      Everyone → everyone's devices → free → no one decides
 ```
-
-## Core Ideas
-
-- **Parallel Tracks Architecture** — Model split into N independent specialist tracks. Each track runs on one device. All compute in parallel, merge once. 1 round-trip latency regardless of network size.
-
-- **Compute Miles** — Your device processes tokens for others → you earn miles. Spend miles on AI requests. Your own requests on your own device = free. The network runs on reciprocity, not money.
-
-- **Self-Improving System** — Every keystroke teaches the model. Federated learning from millions of devices. The model gets smarter every day without any central training infrastructure.
-
-- **Swarm Awareness** — Anonymized word frequency anomaly detection across the network. Detects earthquakes, floods, epidemics faster than news. A keyboard that tells you what's happening around you.
-
-## Architecture Overview
 
 ```
          Input text
               │
     ┌─────┬───┴───┬─────┐
     ▼     ▼       ▼     ▼
- [Phone1] [Phone2] [Phone3] [Phone4]     ← parallel compute
- Track A   Track B  Track C  Track D      ← each track = specialist
- 6 layers  6 layers 6 layers 6 layers     ← sequential inside device
+ [Phone1] [Phone2] [Phone3] [Phone4]     ← parallel, all at once
+ Track A   Track B  Track C  Track D      ← each = specialist
+ 6 layers  6 layers 6 layers 6 layers     ← sequential inside
     │      │       │     │
     └──────┴───┬───┴─────┘
                ▼
-     Cross-Track Attention                ← tracks exchange information
+     Cross-Track Attention                ← tracks share findings
                ▼
-     Token-Dependent Merge                ← smart per-token combination
+     Token-Dependent Merge                ← smart combination
                ▼
             Output
 ```
 
 **Key properties:**
-- Any subset of tracks produces valid output (1, 2, 4, or 32 tracks)
-- Weak phone = 1 track (150MB). Powerful phone = 4 tracks. Computer = 8+.
-- Adding phones = adding intelligence, not adding latency
-- Hierarchical merge for 64+ tracks (each merge layer handles max 8)
+- Any subset of tracks works (1 phone = basic AI, 8 phones = powerful AI)
+- Each device stores ~160MB regardless of network size
+- Adding devices = adding intelligence, not latency
+- 1 group, 1 round-trip — always
 
 ## Scaling
 
-| Tracks | Total Params | Comparable To | Per Device |
-|--------|-------------|---------------|------------|
+| Devices | Total Params | Comparable To | Per Device |
+|---------|-------------|---------------|------------|
 | 8 | 2.5B | GPT-2 | 160MB |
-| 16 | 5B | — | 160MB |
 | 64 | 20B | LLaMA-7B | 160MB |
-| 512 | 161B | Mixtral 8x7B | 160MB |
+| 512 | 161B | Mixtral 8×7B | 160MB |
+| 4,096 | 1.3T | GPT-4 class | 160MB |
 
-Each device stores the same 160MB regardless of network size. The model scales by adding devices, not by making devices heavier.
+The model scales by adding people, not by buying GPUs.
 
-## Compute Miles Protocol
+---
 
-Each device earns Compute Miles proportional to tokens processed through its local track layers.
+## Economics: no currency, no tokens, just contribution
 
-```
-1 Compute Mile = 1 token × 1 layer processed on your device
-```
-
-Earning multiplier adjusts based on network size:
-
-| Network Size | Multiplier |
-|-------------|-----------|
-| 0 — 100 | 50.0 |
-| 100 — 1K | 24.0 |
-| 1K — 10K | 12.0 |
-| 10K — 100K | 6.0 |
-| 100K — 1M | 3.0 |
-| 1M+ | 1.0 |
-
-Device multiplier uses logarithmic scaling to prevent concentration:
+There is no money inside the network. No tokens, no coins, no marketplace.
 
 ```
-multiplier = 1 + log2(tracks_on_device)
-
-1 track:   1.0×
-2 tracks:  2.0×
-4 tracks:  3.0×
-8 tracks:  4.0×
+┌──────────────────────────────────────────────┐
+│                                              │
+│  All free compute → trains the model.        │
+│  Want to use AI → your rating decides.       │
+│  Rating = how much you've trained.           │
+│                                              │
+│  Your device = your AI. Instant. Free.       │
+│  Network AI = shared by rating.              │
+│  Priority = √(your rating) / Σ√(everyone)   │
+│                                              │
+│  Rating is permanent. Transferable.          │
+│  Contribution: signals = 1×, full data = 2×  │
+│                                              │
+└──────────────────────────────────────────────┘
 ```
 
-Miles can be transferred between devices:
+**Developers build on GPU Network for free.** No API fees. Your users bring their own devices. You build the interface, the network provides the intelligence.
 
+---
+
+## For developers
+
+Build apps on GPU Network — your users bring their own compute and rating. You pay nothing.
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://gpu.social/v1",
+    api_key="YOUR_KEY"
+)
+
+response = client.chat.completions.create(
+    model="qwen2.5-14b",
+    messages=[{"role": "user", "content": "Explain quantum computing simply"}]
+)
+print(response.choices[0].message.content)
 ```
-POST /miles/transfer
-{ "from": device_id, "to": device_id, "amount": int, "sig": ed25519_sig }
-```
 
-Transfers are irreversible. No fee is applied.
+See [KEYBOARD_SPEC.md](./KEYBOARD_SPEC.md) for building a keyboard client.
 
-## Data Contribution Tiers
+---
 
-```
-Private (default):        Signals only (predicted vs actual token ID)    +0% miles
-Help Train:               Signals + full context (token IDs)             +50% miles
-Maximum (V3+):            Signals + context + local gradients            +100% miles
-```
+## Architecture validated
 
-Users choose their tier. More data contribution = more miles. All tiers get the same free AI.
+8 model architectures tested. Results:
+
+| Model | Architecture | Loss (100M tokens) |
+|-------|-------------|-------------------|
+| A | 4 tracks, simple merge | 8.14 |
+| B | + Token-Dependent Merge | 8.12 |
+| C | + Cross-Track Attention | 3.81 |
+| **F2** | **8 tracks, TDM+CTA** | **2.85** |
+| E | 2 groups (sequential) | 8.56 |
+
+**Winner: 1 group × 8 tracks + TDM + CTA.** More tracks = better. Sequential groups = worse. Full results in [BENCHMARKS.md](./BENCHMARKS.md).
+
+Currently training on 1B tokens. Loss improving daily.
+
+---
 
 ## Documents
 
-- [MISSION.md](./MISSION.md) — Why this exists
-- [SOLUTIONS.md](./SOLUTIONS.md) — Technical architecture decisions
-- [PROTOCOL.md](./PROTOCOL.md) — Network protocol specification
-- [SWARM.md](./SWARM.md) — Swarm Awareness system design
-- [COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md) — Landscape and differentiation
+| File | What's inside |
+|------|--------------|
+| [PROTOCOL.md](./PROTOCOL.md) | Network protocol, rating system, device communication |
+| [MISSION.md](./MISSION.md) | Why this exists, Gödel-Darwin-Cybernetic framework |
+| [SOLUTIONS.md](./SOLUTIONS.md) | Architecture decisions, training plan, V2→V5 roadmap |
+| [BENCHMARKS.md](./BENCHMARKS.md) | All ablation study results with analysis |
+| [SWARM.md](./SWARM.md) | Collective awareness from anonymized keyboard data |
+| [KEYBOARD_SPEC.md](./KEYBOARD_SPEC.md) | Build a keyboard client for any platform |
+| [COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md) | Market landscape, how we differ |
+| [enhance_options.md](./enhance_options.md) | Future optimizations and ideas |
+
+---
 
 ## Status
 
-Active research. Architecture validated through ablation studies. Training in progress.
+```
+✅ Architecture: validated (8 tracks, TDM+CTA)
+✅ Free API: live at gpu.social (Qwen2.5-14B, ~20 tok/s)
+✅ Mac app: signed + notarized
+✅ Windows app: .exe available
+✅ iOS keyboard: built, on device
+🔄 Training: F2 model on 1B tokens (in progress)
+⬜ Android keyboard
+⬜ Swarm Awareness (V3)
+⬜ Federated learning on phones (V3)
+```
 
-## Contact
+---
 
-Building this solo. Looking for collaborators who believe AI should belong to people, not corporations.
+## Get involved
 
+This is built by one person. It doesn't have to be.
+
+If you believe AI should belong to people — not the few companies that can afford $300M training runs — there's room for you here.
+
+- **Use it:** [gpu.social](https://gpu.social)
+- **Build on it:** Fork, extend, improve
 - **Email:** kustyuka@gmail.com
-- **Telegram:** @yuka_k
-- **GitHub:** [@yukakust](https://github.com/yukakust)
+- **Telegram:** [@yuka_k](https://t.me/yuka_k)
+
+---
+
+*AI should belong to everyone.*
