@@ -52,33 +52,131 @@ def api_post(path, data=None, headers=None):
         return {"error": str(e)}
 
 
-def register():
-    config = load_config()
-    if config.get("api_key"):
-        return config
-
+def register_new():
+    """Create new account."""
     device_id = str(uuid.uuid4())
     plat = f"{platform.system()}-{platform.machine()}"
-
     result = api_post("/api/register", {
         "device_id": device_id,
         "platform": plat,
+        "mode": "new",
     })
-
     if "api_key" in result:
-        config = {
-            "device_id": device_id,
-            "api_key": result["api_key"],
-            "platform": plat,
-        }
+        config = {"device_id": device_id, "api_key": result["api_key"], "platform": plat}
         save_config(config)
         return config
-    return {"api_key": "registration_failed", "error": result.get("error", "unknown")}
+    return None
+
+
+def register_link(existing_key):
+    """Link this device to existing account."""
+    device_id = str(uuid.uuid4())
+    plat = f"{platform.system()}-{platform.machine()}"
+    result = api_post("/api/register", {
+        "device_id": device_id,
+        "platform": plat,
+        "mode": "link",
+        "api_key": existing_key.strip(),
+    })
+    if "api_key" in result and "error" not in result:
+        config = {"device_id": device_id, "api_key": result["api_key"], "platform": plat}
+        save_config(config)
+        return config
+    return None
+
+
+class WelcomeScreen:
+    """First screen: Create account or enter existing key."""
+    def __init__(self):
+        self.result = None
+        self.root = tk.Tk()
+        self.root.title("GPU")
+        self.root.configure(bg="#fafaf9")
+        self.root.resizable(False, False)
+
+        w, h = 380, 340
+        x = (self.root.winfo_screenwidth() - w) // 2
+        y = (self.root.winfo_screenheight() - h) // 3
+        self.root.geometry(f"{w}x{h}+{x}+{y}")
+
+        bg = "#fafaf9"
+        fg = "#1c1917"
+        muted = "#78716c"
+        accent = "#d97706"
+
+        frame = tk.Frame(self.root, bg=bg, padx=32, pady=32)
+        frame.pack(fill="both", expand=True)
+
+        tk.Label(frame, text="GPU", font=tkfont.Font(family="Helvetica", size=28, weight="bold"),
+                bg=bg, fg=fg).pack(anchor="w")
+        tk.Label(frame, text="Gifted People United", font=tkfont.Font(size=11),
+                bg=bg, fg=muted).pack(anchor="w")
+
+        tk.Frame(frame, height=32, bg=bg).pack()
+
+        # Create new
+        new_btn = tk.Button(frame, text="Create new account", font=tkfont.Font(size=13),
+                           bg="#1c1917", fg="#fafaf9", bd=0, padx=20, pady=10,
+                           cursor="hand2", activebackground="#292524",
+                           command=self.on_new)
+        new_btn.pack(fill="x")
+
+        tk.Frame(frame, height=12, bg=bg).pack()
+
+        # Or link
+        tk.Label(frame, text="or", font=tkfont.Font(size=10), bg=bg, fg=muted).pack()
+
+        tk.Frame(frame, height=12, bg=bg).pack()
+
+        # Key entry
+        key_frame = tk.Frame(frame, bg=bg)
+        key_frame.pack(fill="x")
+
+        self.key_entry = tk.Entry(key_frame, font=tkfont.Font(family="Courier", size=11),
+                                  bg="#f5f5f4", fg=fg, bd=0,
+                                  highlightbackground="#e7e5e4", highlightthickness=1)
+        self.key_entry.insert(0, "paste your key here")
+        self.key_entry.bind("<FocusIn>", lambda e: self.key_entry.delete(0, "end") if self.key_entry.get() == "paste your key here" else None)
+        self.key_entry.pack(side="left", fill="x", expand=True, ipady=8, padx=(0, 8))
+
+        link_btn = tk.Button(key_frame, text="Link", font=tkfont.Font(size=11),
+                            bg="#f5f5f4", fg=accent, bd=0, padx=16, pady=6,
+                            cursor="hand2", command=self.on_link)
+        link_btn.pack(side="right")
+
+        # Error label
+        self.error_label = tk.Label(frame, text="", font=tkfont.Font(size=9),
+                                    bg=bg, fg="#ef4444")
+        self.error_label.pack(anchor="w", pady=(8, 0))
+
+    def on_new(self):
+        config = register_new()
+        if config:
+            self.result = config
+            self.root.destroy()
+        else:
+            self.error_label.config(text="Connection failed. Check your internet.")
+
+    def on_link(self):
+        key = self.key_entry.get().strip()
+        if not key or key == "paste your key here":
+            self.error_label.config(text="Enter your key first.")
+            return
+        config = register_link(key)
+        if config:
+            self.result = config
+            self.root.destroy()
+        else:
+            self.error_label.config(text="Key not found. Check and try again.")
+
+    def run(self):
+        self.root.mainloop()
+        return self.result
 
 
 class GPUApp:
-    def __init__(self):
-        self.config = register()
+    def __init__(self, config):
+        self.config = config
         self.api_key = self.config.get("api_key", "")
         self.running = True
         self.title_clicks = 0
@@ -436,7 +534,16 @@ class GPUApp:
 
 
 def main():
-    app = GPUApp()
+    # Check if already registered
+    config = load_config()
+    if not config.get("api_key"):
+        # Show welcome screen
+        welcome = WelcomeScreen()
+        config = welcome.run()
+        if not config:
+            return  # User closed without registering
+
+    app = GPUApp(config)
     app.run()
 
 
