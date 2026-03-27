@@ -1,0 +1,35 @@
+name: Build Mac Intel
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-mac-intel:
+    runs-on: macos-13
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install pyinstaller
+      
+      - name: Build app
+        run: pyinstaller --onefile --windowed --name "GPU" --clean gpu_app.py
+      
+      - name: Create DMG
+        run: |
+          mkdir -p dmg-content
+          cp -r dist/GPU.app dmg-content/
+          ln -s /Applications dmg-content/Applications
+          hdiutil create -volname "GPU" -srcfolder dmg-content -ov -format UDZO dist/GPU-Intel.dmg
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GPU-Mac-Intel
+          path: dist/GPU-Intel.dmg
