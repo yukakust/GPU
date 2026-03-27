@@ -92,7 +92,7 @@ class GPUApp:
         self.root.resizable(False, False)
 
         # Window size
-        w, h = 420, 680
+        w, h = 420, 800
         x = (self.root.winfo_screenwidth() - w) // 2
         y = (self.root.winfo_screenheight() - h) // 3
         self.root.geometry(f"{w}x{h}+{x}+{y}")
@@ -168,16 +168,67 @@ class GPUApp:
 
         tk.Label(frame, text="MODEL", font=tkfont.Font(size=9, weight="bold"),
                 bg=bg, fg=muted).pack(anchor="w")
-        tk.Label(frame, text="qwen2.5-14b", font=tkfont.Font(family="Courier", size=11),
+        tk.Label(frame, text="Qwen3.5-122B (Opus 4.0+ level)", font=tkfont.Font(family="Courier", size=10),
                 bg=bg, fg=fg).pack(anchor="w")
 
-        tk.Frame(frame, height=24, bg=bg).pack()
+        tk.Frame(frame, height=16, bg=bg).pack()
+
+        # Settings: Context + Thinking
+        settings_frame = tk.Frame(frame, bg="#f5f5f4", padx=16, pady=12,
+                                  highlightbackground="#e7e5e4", highlightthickness=1)
+        settings_frame.pack(fill="x")
+
+        tk.Label(settings_frame, text="SETTINGS", font=tkfont.Font(size=8, weight="bold"),
+                bg="#f5f5f4", fg=muted).pack(anchor="w")
+        tk.Frame(settings_frame, height=8, bg="#f5f5f4").pack()
+
+        # Context slider
+        ctx_row = tk.Frame(settings_frame, bg="#f5f5f4")
+        ctx_row.pack(fill="x")
+        tk.Label(ctx_row, text="Context", font=tkfont.Font(size=9),
+                bg="#f5f5f4", fg=fg).pack(side="left")
+        self.ctx_label = tk.Label(ctx_row, text="4K  ~50 tok/s", font=tkfont.Font(size=8),
+                                  bg="#f5f5f4", fg=muted)
+        self.ctx_label.pack(side="right")
+
+        self.ctx_var = tk.IntVar(value=4)
+        ctx_scale = tk.Scale(settings_frame, from_=1, to=64, orient="horizontal",
+                            variable=self.ctx_var, bg="#f5f5f4", fg=fg,
+                            highlightthickness=0, troughcolor="#e7e5e4",
+                            activebackground=accent, sliderrelief="flat",
+                            command=self.on_ctx_change, showvalue=False)
+        ctx_scale.pack(fill="x")
+
+        tk.Frame(settings_frame, height=6, bg="#f5f5f4").pack()
+
+        # Thinking toggle
+        think_row = tk.Frame(settings_frame, bg="#f5f5f4")
+        think_row.pack(fill="x")
+        tk.Label(think_row, text="Deep thinking", font=tkfont.Font(size=9),
+                bg="#f5f5f4", fg=fg).pack(side="left")
+        self.think_var = tk.BooleanVar(value=False)
+        think_cb = tk.Checkbutton(think_row, variable=self.think_var,
+                                  bg="#f5f5f4", activebackground="#f5f5f4",
+                                  command=self.on_think_change)
+        think_cb.pack(side="right")
+        self.think_label = tk.Label(think_row, text="Off  ~50 tok/s", font=tkfont.Font(size=8),
+                                    bg="#f5f5f4", fg=muted)
+        self.think_label.pack(side="right", padx=(0, 8))
+
+        tk.Frame(frame, height=16, bg=bg).pack()
+
+        # Speed estimate
+        self.speed_label = tk.Label(frame, text="Estimated speed: ~50 tok/s",
+                                    font=tkfont.Font(size=10, weight="bold"), bg=bg, fg=accent)
+        self.speed_label.pack(anchor="w")
+
+        tk.Frame(frame, height=8, bg=bg).pack()
 
         # Info
         info_font = tkfont.Font(size=10)
         tk.Label(frame, text="Works with any OpenAI-compatible tool.",
                 font=info_font, bg=bg, fg=muted).pack(anchor="w")
-        tk.Label(frame, text="Keep this app running to use the API.",
+        tk.Label(frame, text="Keep this app running to improve your rating.",
                 font=info_font, bg=bg, fg=muted).pack(anchor="w")
 
         tk.Frame(frame, height=20, bg=bg).pack()
@@ -234,6 +285,44 @@ class GPUApp:
         tk.Label(frame, text="Oh, and to Big Tech — thanks for the inspiration. We'll take it from here. \U0001f609",
                 font=tkfont.Font(size=7, slant="italic"), bg=bg, fg=accent,
                 wraplength=356, justify="left").pack(anchor="w")
+
+    # --- Settings callbacks ---
+    def estimate_speed(self):
+        ctx = self.ctx_var.get()
+        think = self.think_var.get()
+        # Rough estimate based on our benchmarks
+        if ctx <= 4:
+            base = 50
+        elif ctx <= 8:
+            base = 40
+        elif ctx <= 16:
+            base = 25
+        elif ctx <= 32:
+            base = 12
+        else:
+            base = 5
+        if think:
+            base = base * 0.5
+        return int(base)
+
+    def on_ctx_change(self, val):
+        ctx = self.ctx_var.get()
+        speed = self.estimate_speed()
+        self.ctx_label.config(text=f"{ctx}K  ~{speed} tok/s")
+        self.speed_label.config(text=f"Estimated speed: ~{speed} tok/s")
+        # Save to config
+        config = load_config()
+        config["context_k"] = ctx
+        save_config(config)
+
+    def on_think_change(self):
+        think = self.think_var.get()
+        speed = self.estimate_speed()
+        self.think_label.config(text=f"{'On' if think else 'Off'}  ~{speed} tok/s")
+        self.speed_label.config(text=f"Estimated speed: ~{speed} tok/s")
+        config = load_config()
+        config["thinking"] = think
+        save_config(config)
 
     # --- Easter egg: Triple-click GPU → Pied Piper ---
     def on_title_click(self, event):
