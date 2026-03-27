@@ -264,43 +264,47 @@ class GPUApp:
 
         tk.Frame(frame, height=8, bg=bg).pack()
 
+        # Model selector
         tk.Label(frame, text="MODEL", font=tkfont.Font(size=9, weight="bold"),
                 bg=bg, fg=muted).pack(anchor="w")
-        tk.Label(frame, text="Qwen3.5-122B (Opus 4.0+ level)", font=tkfont.Font(family="Courier", size=10),
-                bg=bg, fg=fg).pack(anchor="w")
+        tk.Frame(frame, height=6, bg=bg).pack()
 
-        tk.Frame(frame, height=16, bg=bg).pack()
+        model_frame = tk.Frame(frame, bg=bg)
+        model_frame.pack(fill="x")
 
-        # Settings: Context + Thinking
-        settings_frame = tk.Frame(frame, bg="#f5f5f4", padx=16, pady=12,
-                                  highlightbackground="#e7e5e4", highlightthickness=1)
-        settings_frame.pack(fill="x")
+        self.model_var = tk.StringVar(value="smart")
 
-        tk.Label(settings_frame, text="SETTINGS", font=tkfont.Font(size=8, weight="bold"),
+        smart_btn = tk.Radiobutton(model_frame, text="Smart (122B) ~5 tok/s",
+                                   variable=self.model_var, value="smart",
+                                   font=tkfont.Font(size=10), bg=bg, fg=fg,
+                                   activebackground=bg, selectcolor=bg,
+                                   command=self.on_model_change)
+        smart_btn.pack(anchor="w")
+        tk.Label(model_frame, text="  Opus 4+ level · deep reasoning & code",
+                font=tkfont.Font(size=8), bg=bg, fg=muted).pack(anchor="w")
+
+        fast_btn = tk.Radiobutton(model_frame, text="Fast (14B) ~20 tok/s",
+                                  variable=self.model_var, value="fast",
+                                  font=tkfont.Font(size=10), bg=bg, fg=fg,
+                                  activebackground=bg, selectcolor=bg,
+                                  command=self.on_model_change)
+        fast_btn.pack(anchor="w")
+        tk.Label(model_frame, text="  GPT-4o-mini level · quick answers",
+                font=tkfont.Font(size=8), bg=bg, fg=muted).pack(anchor="w")
+
+        tk.Frame(frame, height=12, bg=bg).pack()
+
+        # Smart settings (context + thinking) — only visible when Smart selected
+        self.smart_frame = tk.Frame(frame, bg="#f5f5f4", padx=16, pady=12,
+                                    highlightbackground="#e7e5e4", highlightthickness=1)
+        self.smart_frame.pack(fill="x")
+
+        tk.Label(self.smart_frame, text="SMART SETTINGS", font=tkfont.Font(size=8, weight="bold"),
                 bg="#f5f5f4", fg=muted).pack(anchor="w")
-        tk.Frame(settings_frame, height=8, bg="#f5f5f4").pack()
-
-        # Context slider
-        ctx_row = tk.Frame(settings_frame, bg="#f5f5f4")
-        ctx_row.pack(fill="x")
-        tk.Label(ctx_row, text="Context", font=tkfont.Font(size=9),
-                bg="#f5f5f4", fg=fg).pack(side="left")
-        self.ctx_label = tk.Label(ctx_row, text="4K  ~50 tok/s", font=tkfont.Font(size=8),
-                                  bg="#f5f5f4", fg=muted)
-        self.ctx_label.pack(side="right")
-
-        self.ctx_var = tk.IntVar(value=4)
-        ctx_scale = tk.Scale(settings_frame, from_=1, to=64, orient="horizontal",
-                            variable=self.ctx_var, bg="#f5f5f4", fg=fg,
-                            highlightthickness=0, troughcolor="#e7e5e4",
-                            activebackground=accent, sliderrelief="flat",
-                            command=self.on_ctx_change, showvalue=False)
-        ctx_scale.pack(fill="x")
-
-        tk.Frame(settings_frame, height=6, bg="#f5f5f4").pack()
+        tk.Frame(self.smart_frame, height=6, bg="#f5f5f4").pack()
 
         # Thinking toggle
-        think_row = tk.Frame(settings_frame, bg="#f5f5f4")
+        think_row = tk.Frame(self.smart_frame, bg="#f5f5f4")
         think_row.pack(fill="x")
         tk.Label(think_row, text="Deep thinking", font=tkfont.Font(size=9),
                 bg="#f5f5f4", fg=fg).pack(side="left")
@@ -309,14 +313,33 @@ class GPUApp:
                                   bg="#f5f5f4", activebackground="#f5f5f4",
                                   command=self.on_think_change)
         think_cb.pack(side="right")
-        self.think_label = tk.Label(think_row, text="Off  ~50 tok/s", font=tkfont.Font(size=8),
+        self.think_label = tk.Label(think_row, text="Off  ~5 tok/s", font=tkfont.Font(size=8),
                                     bg="#f5f5f4", fg=muted)
         self.think_label.pack(side="right", padx=(0, 8))
 
-        tk.Frame(frame, height=16, bg=bg).pack()
+        tk.Frame(self.smart_frame, height=6, bg="#f5f5f4").pack()
+
+        # Context slider
+        ctx_row = tk.Frame(self.smart_frame, bg="#f5f5f4")
+        ctx_row.pack(fill="x")
+        tk.Label(ctx_row, text="Context", font=tkfont.Font(size=9),
+                bg="#f5f5f4", fg=fg).pack(side="left")
+        self.ctx_label = tk.Label(ctx_row, text="4K", font=tkfont.Font(size=8),
+                                  bg="#f5f5f4", fg=muted)
+        self.ctx_label.pack(side="right")
+
+        self.ctx_var = tk.IntVar(value=4)
+        ctx_scale = tk.Scale(self.smart_frame, from_=1, to=16, orient="horizontal",
+                            variable=self.ctx_var, bg="#f5f5f4", fg=fg,
+                            highlightthickness=0, troughcolor="#e7e5e4",
+                            activebackground=accent, sliderrelief="flat",
+                            command=self.on_ctx_change, showvalue=False)
+        ctx_scale.pack(fill="x")
+
+        tk.Frame(frame, height=12, bg=bg).pack()
 
         # Speed estimate
-        self.speed_label = tk.Label(frame, text="Estimated speed: ~50 tok/s",
+        self.speed_label = tk.Label(frame, text="Estimated speed: ~5 tok/s",
                                     font=tkfont.Font(size=10, weight="bold"), bg=bg, fg=accent)
         self.speed_label.pack(anchor="w")
 
@@ -386,29 +409,39 @@ class GPUApp:
 
     # --- Settings callbacks ---
     def estimate_speed(self):
+        model = self.model_var.get()
+        if model == "fast":
+            return 20
+        # Smart model
         ctx = self.ctx_var.get()
         think = self.think_var.get()
-        # Rough estimate based on our benchmarks
         if ctx <= 4:
-            base = 50
-        elif ctx <= 8:
-            base = 40
-        elif ctx <= 16:
-            base = 25
-        elif ctx <= 32:
-            base = 12
-        else:
             base = 5
+        elif ctx <= 8:
+            base = 4
+        else:
+            base = 2
         if think:
-            base = base * 0.5
-        return int(base)
+            base = max(1, base // 2)
+        return base
+
+    def on_model_change(self):
+        model = self.model_var.get()
+        if model == "fast":
+            self.smart_frame.pack_forget()
+        else:
+            self.smart_frame.pack(fill="x", before=self.speed_label.master)
+        speed = self.estimate_speed()
+        self.speed_label.config(text=f"Estimated speed: ~{speed} tok/s")
+        config = load_config()
+        config["model"] = model
+        save_config(config)
 
     def on_ctx_change(self, val):
         ctx = self.ctx_var.get()
+        self.ctx_label.config(text=f"{ctx}K")
         speed = self.estimate_speed()
-        self.ctx_label.config(text=f"{ctx}K  ~{speed} tok/s")
         self.speed_label.config(text=f"Estimated speed: ~{speed} tok/s")
-        # Save to config
         config = load_config()
         config["context_k"] = ctx
         save_config(config)
