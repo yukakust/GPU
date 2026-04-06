@@ -138,7 +138,17 @@ See [KEYBOARD_SPEC.md](./KEYBOARD_SPEC.md) for building a keyboard client.
 
 **Winner: 1 group × 8 tracks + TDM + CTA.** More tracks = better. Sequential groups = worse. Full results in [BENCHMARKS.md](./BENCHMARKS.md).
 
-Currently training on 1B tokens. Loss improving daily.
+## Model Fusion: borrowing intelligence from SOTA models
+
+What if some tracks were frozen layers from Qwen 72B or Qwen 27B? We replace 2 of 8 tracks with layers 0-2 from pretrained models, quantized to INT4. Trainable projections adapt dimensions (1024 <-> 8192). Real gradients flow through frozen bnb Linear4bit layers.
+
+```
+Tracks 0-4, 7:  ours (trainable)
+Track 5:        Qwen 3.5-27B layers 0-2 (frozen INT4, 0.6 GB on GPU)
+Track 6:        Qwen 2.5-72B layers 0-2 (frozen INT4, 1.5 GB on GPU)
+```
+
+**Result:** Loss 2.69 at step 6650/20000, still decreasing. Qwen 72B contributes up to 20% of merge weight. See [experiments/fusion_v2/](./experiments/fusion_v2/) for code and full results.
 
 ---
 
@@ -154,6 +164,7 @@ Currently training on 1B tokens. Loss improving daily.
 | [KEYBOARD_SPEC.md](./KEYBOARD_SPEC.md) | Build a keyboard client for any platform |
 | [COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md) | Market landscape, how we differ |
 | [enhance_options.md](./enhance_options.md) | Future optimizations and ideas |
+| [experiments/fusion_v2/](./experiments/fusion_v2/) | Model Fusion: code, results, donor extraction |
 
 ---
 
@@ -165,7 +176,8 @@ Currently training on 1B tokens. Loss improving daily.
 ✅ Mac app: signed + notarized
 ✅ Windows app: .exe available
 ✅ iOS keyboard: built, on device
-🔄 Training: F2 model on 1B tokens (in progress)
+✅ Model Fusion V2: Qwen 27B + 72B donor tracks integrated
+🔄 Fusion training: loss 2.69 at step 6.6K/20K (in progress)
 ⬜ Android keyboard
 ⬜ Swarm Awareness (V3)
 ⬜ Federated learning on phones (V3)

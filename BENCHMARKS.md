@@ -98,11 +98,40 @@ Step     Epoch   Loss    Tokens
  4550    2        2.85  298M  ← final
 ```
 
-## Current: F2 Training on 1B Tokens
+## Model Fusion V2: Borrowing Intelligence from SOTA Models
 
-Started: 2026-03-25. Expected completion: ~2026-04-01.
+**Idea:** Replace 2 of 8 PT-MoE tracks with frozen layers from Qwen 3.5-27B and Qwen 2.5-72B. These layers contain world knowledge from trillions of tokens. Trainable projections (1024 <-> donor_d_model) + CTA + Merge learn to integrate their outputs.
 
-Architecture: same F2 (1 group × 8 tracks + TDM + CTA). Training on 2× L20 via FSDP. Checkpoints every 500 steps with sample generation. Hot-swap to inference server when loss < 3.81 (expected ~13 hours in).
+```
+Track 0-4: our tracks        (trainable, lr=1e-5)
+Track 5:   Qwen 3.5-27B      (frozen INT4, proj trained at lr=3e-4)
+Track 6:   Qwen 2.5-72B      (frozen INT4, proj trained at lr=3e-4)
+Track 7:   our track          (trainable, lr=1e-5)
+```
+
+### Results
+
+| Run | Steps | Final Loss | Baseline | Donors | GPU Memory |
+|-----|-------|-----------|----------|--------|------------|
+| V2.0 (straight-through grad) | 5K | 3.22 | 2.20 | 27B + 72B + 397B MoE | 74 GB |
+| **V2.1 (real gradients)** | **20K** | **2.69*** | **2.20** | **27B + 72B** | **39 GB** |
+
+*V2.1 still in progress at step 6650/20000. Loss still decreasing.
+
+### Key Findings
+
+1. **Real gradients >> straight-through**: V2.1 reached 2.69 at step 6650, V2.0 plateaued at 3.22 after 5K
+2. **MoE donors don't work**: Qwen 3.5-397B MoE contributed 0% merge weight with straight-through gradient. Removed in V2.1, freeing 27 GB VRAM
+3. **Dense donors work**: Qwen 2.5-72B reaches up to 20% merge weight (token-dependent)
+4. **INT4 quantization is practical**: 72B model = 1.5 GB on GPU, real gradients flow through bnb Linear4bit
+
+### Merge Weight Distribution (V2.1, step 6000)
+
+| Tracks 0-4 (ours) | Track 5 (Qwen 27B) | Track 6 (Qwen 72B) |
+|--------------------|--------------------|--------------------|
+| 85.6% | 4.4% | 9.5% |
+
+Full results and code: [experiments/fusion_v2/](./experiments/fusion_v2/)
 
 ---
 
