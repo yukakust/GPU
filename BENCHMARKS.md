@@ -98,6 +98,23 @@ Step     Epoch   Loss    Tokens
  4550    2        2.85  298M  ← final
 ```
 
+## SFT Training
+
+F2 architecture fine-tuned on supervised data (Russian SFT, high-quality examples scored by opus).
+
+| Metric | Value |
+|--------|-------|
+| Architecture | F2 (1 group x 8 tracks + TDM + CTA) |
+| Pretrain loss (100M) | 2.85 |
+| **SFT loss** | **2.20** |
+| SFT checkpoint | step 45,798 |
+| SFT data | ~40K Russian examples |
+| Hardware | 2x L20 via FSDP |
+
+This SFT checkpoint (loss 2.20) serves as the baseline for all fusion experiments below.
+
+---
+
 ## Model Fusion V2: Borrowing Intelligence from SOTA Models
 
 **Idea:** Replace 2 of 8 PT-MoE tracks with frozen layers from Qwen 3.5-27B and Qwen 2.5-72B. These layers contain world knowledge from trillions of tokens. Trainable projections (1024 <-> donor_d_model) + CTA + Merge learn to integrate their outputs.

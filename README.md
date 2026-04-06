@@ -66,13 +66,16 @@ GPU Network:      Everyone → everyone's devices → free → humanity gets sma
 
 | Devices | Total Params | Comparable To | Per Device |
 |---------|-------------|---------------|------------|
-| 8 | 2.5B | GPT-2 | 160MB |
-| 64 | 20B | LLaMA-7B | 160MB |
-| 512 | 161B | Mixtral 8×7B | 160MB |
-| 4,096 | 1.3T | GPT-4 class | 160MB |
-| 100,000+ | 30T+ | Beyond GPT-5 | 160MB |
+| 1 | 742M active | Basic autocomplete | 157MB |
+| 8 | 2.5B | GPT-2 level | 157MB |
+| 64 | 20B | LLaMA-7B level | 157MB |
+| 512 | 161B | Mixtral 8x7B level | 157MB |
+| 4,096 | 1.3T | GPT-4 class | 157MB |
+| 100,000+ | 30T+ | Beyond anything | 157MB |
 
 The model scales by adding people, not by buying GPUs. More devices = more intelligence. More users = more training data. There is no ceiling — the network gets smarter every day, forever.
+
+See [EVOLUTION.md](./EVOLUTION.md) for the full roadmap from V1 (PoC) to V5 (fully decentralized).
 
 ---
 
@@ -164,6 +167,7 @@ Track 6:        Qwen 2.5-72B layers 0-2 (frozen INT4, 1.5 GB on GPU)
 | [KEYBOARD_SPEC.md](./KEYBOARD_SPEC.md) | Build a keyboard client for any platform |
 | [COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md) | Market landscape, how we differ |
 | [enhance_options.md](./enhance_options.md) | Future optimizations and ideas |
+| [EVOLUTION.md](./EVOLUTION.md) | Model roadmap: V1 (PoC) → V2 (production) → V5 (decentralized) |
 | [experiments/fusion_v2/](./experiments/fusion_v2/) | Model Fusion: code, results, donor extraction |
 
 ---
