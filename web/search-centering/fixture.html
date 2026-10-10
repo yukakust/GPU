@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Issue #2 — search placeholder centering</title>
+<!--
+  Minimal reproduction of the gpu.social project search box.
+  The two rules below are copied verbatim from https://gpu.social/workshop/style.css?v=30
+  (only the properties relevant to layout are kept). The test applies fix.css on top.
+-->
+<style>
+  :root{--bg:#08090c;--surface:#111318;--line-strong:#2a2d35;--text:#e8e6e3;--faint:#8b8f98;--accent:#d97706}
+  body{margin:40px;background:var(--bg);font-family:system-ui,sans-serif}
+  *{box-sizing:border-box}
+
+  /* Generic form-field rule — the source of the stray margin-top:8px. */
+  label>input:not([type=checkbox]),label>textarea{display:block;width:100%;margin-top:8px;padding:12px 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--bg);color:var(--text);font-size:16px}
+
+  /* Project search (label.search > input[type=search]). */
+  .search{display:flex;align-items:center;gap:10px;width:min(100%,320px);height:46px;padding:0 18px;border:1px solid var(--line-strong);border-radius:999px;background:var(--surface);color:var(--faint)}
+  .search svg{flex:none}
+  .search>input[type=search]{flex:1;min-width:0;height:100%;padding:0;border:0;background:none;outline:0;font-size:16px;color:var(--text)}
+</style>
+</head>
+<body>
+<label class="search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="search" placeholder="Найти проект" aria-label="Поиск проектов"></label>
+</body>
+</html>

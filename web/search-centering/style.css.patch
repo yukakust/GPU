@@ -1,0 +1,5 @@
+--- a/workshop/style.css
++++ b/workshop/style.css
+@@
+-.search>input[type=search]{flex:1;min-width:0;height:100%;padding:0;border:0;background:none;outline:0;font-size:16px;color:var(--text)}
++.search>input[type=search]{flex:1;min-width:0;height:100%;margin:0;padding:0;border:0;background:none;outline:0;font-size:16px;color:var(--text)}

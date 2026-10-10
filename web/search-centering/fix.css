@@ -1,0 +1,4 @@
+/* Fix for issue #2: the search input inherits margin-top:8px from the generic
+   `label>input:not([type=checkbox])` form rule, which pushes the placeholder
+   below the centre of the pill. Reset it for the search field. */
+.search>input[type=search]{margin:0}
