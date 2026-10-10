@@ -1,0 +1,33 @@
+name: Test ActivityPub
+
+on:
+  push:
+    paths:
+      - 'gpu_activitypub.py'
+      - 'tests/**'
+      - 'requirements-activitypub.txt'
+      - '.github/workflows/test-activitypub.yml'
+  pull_request:
+    paths:
+      - 'gpu_activitypub.py'
+      - 'tests/**'
+      - 'requirements-activitypub.txt'
+      - '.github/workflows/test-activitypub.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements-activitypub.txt pytest
+
+      - name: Run tests
+        run: python -m pytest tests -v

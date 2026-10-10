@@ -1,0 +1,2 @@
+# ActivityPub / Fediverse bot (gpu_activitypub.py)
+pubby[flask]>=0.3.11,<0.4

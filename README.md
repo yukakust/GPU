@@ -27,6 +27,8 @@ curl https://gpu.social/v1/chat/completions \
 
 OpenAI-compatible. Works with any tool that supports custom endpoints.
 
+**On the Fediverse?** Mention **`@gpu@gpu.social`** from Mastodon, defcon.social or any ActivityPub server — it answers in the thread. See [ACTIVITYPUB.md](./ACTIVITYPUB.md).
+
 ---
 
 ## How it works
@@ -168,6 +170,7 @@ Track 6:        Qwen 2.5-72B layers 0-2 (frozen INT4, 1.5 GB on GPU)
 | [COMPETITIVE_ANALYSIS.md](./COMPETITIVE_ANALYSIS.md) | Market landscape, how we differ |
 | [enhance_options.md](./enhance_options.md) | Future optimizations and ideas |
 | [EVOLUTION.md](./EVOLUTION.md) | Model roadmap: V1 (PoC) → V2 (production) → V5 (decentralized) |
+| [ACTIVITYPUB.md](./ACTIVITYPUB.md) | Fediverse bot `@gpu@gpu.social`: setup, behaviour, defcon.social notes |
 | [experiments/fusion_v2/](./experiments/fusion_v2/) | Model Fusion: code, results, donor extraction |
 
 ---
@@ -181,6 +184,7 @@ Track 6:        Qwen 2.5-72B layers 0-2 (frozen INT4, 1.5 GB on GPU)
 ✅ Windows app: .exe available
 ✅ iOS keyboard: built, on device
 ✅ Model Fusion V2: Qwen 27B + 72B donor tracks integrated
+🔄 Fediverse bot @gpu@gpu.social (ActivityPub via pubby): code + tests ready, deploy pending
 🔄 Fusion training: loss 2.69 at step 6.6K/20K (in progress)
 ⬜ Android keyboard
 ⬜ Swarm Awareness (V3)
